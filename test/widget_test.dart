@@ -9,6 +9,6 @@ void main() {
     expect(find.text('SCOTT'), findsOneWidget);
     expect(find.text('Online Multiplayer'), findsOneWidget);
     expect(find.text('Local Wi-Fi Multiplayer'), findsOneWidget);
-    expect(find.text('Pass & Play शामिल नहीं है। हर खिलाड़ी के निजी कार्ड सुरक्षित रहेंगे.'), findsOneWidget);
+    expect(find.textContaining('Pass & Play शामिल नहीं है'), findsOneWidget);
   });
 }

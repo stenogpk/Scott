@@ -371,7 +371,7 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
       final ip = await _findIp();
       if (ip == null) throw StateError('Wi-Fi IP नहीं मिला। दोनों फोन को एक ही Wi-Fi या Hotspot से जोड़ें।');
       final code = await _server.start(hostName: widget.playerName, targetScore: target, onRoomChanged: (room) { if (mounted) setState(() => _room = room); }, onAction: (playerId, action) => _actions.add((playerId: playerId, action: action)));
-      if (mounted) setState(() { _hostIp = ip; _room = RoomSnapshot(code: code, hostId: _server.players.first.id, players: _server.players, targetScore: _target); _busy = false; });
+      if (mounted) setState(() { _hostIp = ip; _room = RoomSnapshot(code: code, hostId: _server.players.first.id, players: _server.players, targetScore: target); _busy = false; });
     } catch (e) { if (mounted) setState(() { _error = e.toString(); _busy = false; }); }
   }
 

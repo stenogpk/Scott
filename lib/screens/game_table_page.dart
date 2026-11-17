@@ -243,9 +243,11 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
             Text('स्कोर: ${p.score}', style: const TextStyle(fontSize: 12)),
-            if (p.isEliminated) const Text('ससम्मान बाहेर 😂', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.w800))
-            if (_state.phase == GamePhase.waitingForTurn) Row(children: List.generate(p.hand.length, (_) => const Padding(padding: EdgeInsets.only(right: 2), child: _CardBack())))
-            else Wrap(spacing: 3, children: p.hand.map((card) => Text(card.toString(), style: TextStyle(fontSize: 11, color: card.suit.isRed ? Colors.red : Colors.black87))).toList()),
+            if (p.isEliminated) const Text('ससम्मान बाहेर 😂', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.w800)),
+            if (_state.phase == GamePhase.waitingForTurn)
+              Row(children: List.generate(p.hand.length, (_) => const Padding(padding: EdgeInsets.only(right: 2), child: _CardBack())))
+            else
+              Wrap(spacing: 3, children: p.hand.map((card) => Text(card.toString(), style: TextStyle(fontSize: 11, color: card.suit.isRed ? Colors.red : Colors.black87))).toList()),
             if (_state.phase != GamePhase.waitingForTurn) Text('हाथ का जोड़: ${p.handTotal}', style: const TextStyle(fontWeight: FontWeight.w700)),
           ]),
         ),

@@ -393,11 +393,15 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
         ]),
         final canTakePrevious = (_public['lastDiscardGroup'] as List? ?? const []).isNotEmpty;
     if (myTurn) ...[
-          OutlinedButton(onPressed: () => widget.sendAction({'type': 'show'}), child: const Text('SHOW')),
+          OutlinedButton(onPressed: () { unawaited(ScottAudio.instance.play('show')); widget.sendAction({'type': 'show'}); }, child: const Text('SHOW')),
           FilledButton(onPressed: _selected.isEmpty ? null : () {
+            unawaited(ScottAudio.instance.play('card_discard'));
+            unawaited(ScottAudio.instance.play('card_draw'));
             widget.sendAction({'type': 'discard', 'cards': _selected.map(GameStateCodec.cardToJson).toList(), 'source': 'drawPile'});
           }, child: const Text('चुने पत्ते फेंकें + Draw Pile से लें')),
           OutlinedButton(onPressed: _selected.isEmpty || !canTakePrevious ? null : () {
+            unawaited(ScottAudio.instance.play('card_discard'));
+            unawaited(ScottAudio.instance.play('previous_pickup'));
             widget.sendAction({'type': 'discard', 'cards': _selected.map(GameStateCodec.cardToJson).toList(), 'source': 'previousPlayerDiscard'});
           }, child: const Text('चुने पत्ते फेंकें + पिछला पत्ता लें')),
         ],

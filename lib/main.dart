@@ -170,11 +170,26 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
   StreamSubscription<Map<String, dynamic>>? _gameSub;
   bool _gameOpened = false;
   int _target = 150;
+  bool _customTarget = false;
+  final _customTargetController = TextEditingController(text: '175');
 
   @override
   void initState() { super.initState(); _service = FirebaseRoomService(apiKey: firebaseApiKey, databaseUrl: firebaseDatabaseUrl); }
   @override
-  void dispose() { _code.dispose(); unawaited(_gameSub?.cancel()); unawaited(_service.dispose()); super.dispose(); }
+  void dispose() { _code.dispose(); _customTargetController.dispose(); unawaited(_gameSub?.cancel()); unawaited(_service.dispose()); super.dispose(); }
+
+  int? get _effectiveTarget => _customTarget
+      ? int.tryParse(_customTargetController.text.trim())
+      : _target;
+
+  Future<void> _createOnlineRoom() async {
+    final target = _effectiveTarget;
+    if (target == null || target <= 0) {
+      setState(() => _error = 'Custom Target Score शून्य से बड़ा अंक होना चाहिए।');
+      return;
+    }
+    await _run(() => _service.createRoom(playerName: widget.playerName, targetScore: target));
+  }
 
   Future<void> _run(Future<RoomSnapshot> Function() task) async {
     setState(() { _busy = true; _error = null; });
@@ -235,9 +250,18 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
         const SizedBox(height: 8),
         const Text('कमरा बनाइए और दोस्तों को 6 अक्षर का Room Code भेजिए।'),
         const SizedBox(height: 12),
-        DropdownButtonFormField<int>(value: _target, decoration: const InputDecoration(labelText: 'Target Score'), items: const [100,150,200].map((v) => DropdownMenuItem(value: v, child: Text('$v अंक'))).toList(), onChanged: (v) => setState(() => _target = v ?? 150)),
+        DropdownButtonFormField<int>(
+          value: _customTarget ? -1 : _target,
+          decoration: const InputDecoration(labelText: 'Target Score'),
+          items: const [100, 150, 200, -1].map((v) => DropdownMenuItem(value: v, child: Text(v == -1 ? 'Custom' : '$v अंक'))).toList(),
+          onChanged: (v) => setState(() { _customTarget = v == -1; if (v != null && v > 0) _target = v; }),
+        ),
+        if (_customTarget) ...[
+          const SizedBox(height: 10),
+          TextField(controller: _customTargetController, keyboardType: TextInputType.number, maxLength: 5, decoration: const InputDecoration(labelText: 'Custom Target Score', hintText: 'जैसे 175')),
+        ],
         const SizedBox(height: 12),
-        FilledButton.icon(onPressed: _busy ? null : () => _run(() => _service.createRoom(playerName: widget.playerName, targetScore: _target)), icon: const Icon(Icons.add_circle_outline), label: const Text('Create Room')),
+        FilledButton.icon(onPressed: _busy ? null : _createOnlineRoom, icon: const Icon(Icons.add_circle_outline), label: const Text('Create Room')),
         const Divider(height: 34),
         const Text('मौजूदा कमरे में शामिल हों', style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800)),
         const SizedBox(height: 10),
@@ -285,6 +309,8 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
   final _actions = StreamController<({String playerId, Map<String, dynamic> action})>.broadcast();
   bool _gameOpened = false;
   int _target = 150;
+  bool _customTarget = false;
+  final _customTargetController = TextEditingController(text: '175');
   final _ip = TextEditingController();
   final _code = TextEditingController();
   String? _hostIp;
@@ -301,6 +327,7 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
     unawaited(_actions.close());
     _ip.dispose();
     _code.dispose();
+    _customTargetController.dispose();
     super.dispose();
   }
 
@@ -332,11 +359,18 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
   }
 
   Future<void> _host() async {
+    final target = _customTarget
+        ? int.tryParse(_customTargetController.text.trim())
+        : _target;
+    if (target == null || target <= 0) {
+      setState(() => _error = 'Custom Target Score शून्य से बड़ा अंक होना चाहिए।');
+      return;
+    }
     setState(() { _busy = true; _error = null; });
     try {
       final ip = await _findIp();
       if (ip == null) throw StateError('Wi-Fi IP नहीं मिला। दोनों फोन को एक ही Wi-Fi या Hotspot से जोड़ें।');
-      final code = await _server.start(hostName: widget.playerName, targetScore: _target, onRoomChanged: (room) { if (mounted) setState(() => _room = room); }, onAction: (playerId, action) => _actions.add((playerId: playerId, action: action)));
+      final code = await _server.start(hostName: widget.playerName, targetScore: target, onRoomChanged: (room) { if (mounted) setState(() => _room = room); }, onAction: (playerId, action) => _actions.add((playerId: playerId, action: action)));
       if (mounted) setState(() { _hostIp = ip; _room = RoomSnapshot(code: code, hostId: _server.players.first.id, players: _server.players, targetScore: _target); _busy = false; });
     } catch (e) { if (mounted) setState(() { _error = e.toString(); _busy = false; }); }
   }
@@ -384,7 +418,16 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
           const SizedBox(height: 8),
           const Text('यह फोन Host बनेगा। दूसरे खिलाड़ी इसी Wi-Fi या आपके Hotspot से जुड़ेंगे।'),
           const SizedBox(height: 12),
-          DropdownButtonFormField<int>(value: _target, decoration: const InputDecoration(labelText: 'Target Score'), items: const [100, 150, 200].map((v) => DropdownMenuItem(value: v, child: Text('$v अंक'))).toList(), onChanged: (v) => setState(() => _target = v ?? 150)),
+          DropdownButtonFormField<int>(
+            value: _customTarget ? -1 : _target,
+            decoration: const InputDecoration(labelText: 'Target Score'),
+            items: const [100, 150, 200, -1].map((v) => DropdownMenuItem(value: v, child: Text(v == -1 ? 'Custom' : '$v अंक'))).toList(),
+            onChanged: (v) => setState(() { _customTarget = v == -1; if (v != null && v > 0) _target = v; }),
+          ),
+          if (_customTarget) ...[
+            const SizedBox(height: 10),
+            TextField(controller: _customTargetController, keyboardType: TextInputType.number, maxLength: 5, decoration: const InputDecoration(labelText: 'Custom Target Score', hintText: 'जैसे 175')),
+          ],
           const SizedBox(height: 12),
           FilledButton.icon(onPressed: _busy ? null : _host, icon: const Icon(Icons.wifi_tethering), label: const Text('Create Local Room')),
         ]))),

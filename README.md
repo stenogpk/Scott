@@ -1,32 +1,42 @@
 # SCOTT
 
-SCOTT is a 2–5 player playing-card game with custom rules.
+SCOTT is a 2–5 player Android card game with custom rules and two multiplayer transports.
 
-## Planned play modes
-- Online multiplayer: guest name + room code; no account creation in the UI.
-- Local Wi-Fi multiplayer: works without internet, using one phone as the room host.
-- Bot Play: optional later feature. It must not delay the two multiplayer modes.
-- Pass & Play is not part of the app.
+## Play modes
+- **Online Multiplayer:** guest name + 6-character room code, using Firebase Anonymous Authentication and Realtime Database.
+- **Local Wi-Fi Multiplayer:** one phone hosts a room; friends join by host IP and room code over the same Wi-Fi or hotspot. Internet is not required.
+- Pass & Play is intentionally not included.
 
-## Current development status
-This repository is being built from a clean Flutter foundation. The first implementation stage contains the deterministic rules engine, automated tests, and Android CI build. Online and Local Wi-Fi transports are separate follow-up stages.
-
-## Fixed rules
-- 2–5 players; 52 cards; no jokers; suits do not affect card value.
+## Game rules implemented
+- Standard 52-card deck, no jokers; suits do not affect score.
 - A=1, 2–8 face value, 9=0, 10=10, J=11, Q=12, K=13.
 - A 9 can never be discarded.
-- A turn begins with SHOW or change cards. Changing cards means discard first, then draw exactly one card.
-- A single card or a same-rank group can be discarded. A group still draws only one card.
-- The draw can come from the face-down pile or one card from the immediately previous player's latest discard group.
-- A hand total of zero triggers Automatic SHOW.
-- SHOW succeeds only when the caller's total is strictly lower than every other active player's total.
-- Successful SHOW: caller gets 0; each other active player gets their own hand total.
-- Failed SHOW: caller receives the sum of all active players' hand totals; others receive 0.
-- A player is eliminated at score >= target. Permanent label: ससम्मान बाहेर 😂.
-- Last remaining active player wins.
+- Single card or same-rank pair/triple/quad can be discarded; exactly one card is drawn afterward.
+- Draw from the face-down pile or take one card from the immediately previous active player's latest discard group.
+- If the draw pile is empty, the face-up discard pile is shuffled into a new draw pile.
+- SHOW is selected at the start of a turn, before changing cards. A zero-total hand triggers Automatic SHOW.
+- Successful SHOW requires the caller's hand total to be strictly lower than every other active player's total. Caller gets 0; others add their own hand totals.
+- Failed SHOW adds the sum of all active hand totals to the caller only.
+- Every hand is revealed after SHOW. Players are eliminated at score >= target. Permanent label: **ससम्मान बाहेर 😂**.
+- Last active player wins. Cumulative scoreboard and round history are retained for the game.
+
+## Multiplayer security
+- The room host is authoritative for game actions and scoring.
+- During a live round, only each player can read their own private hand. The host publishes public scores/turn/discard state separately.
+- All hands become public only after a SHOW.
+- Firebase Realtime Database rules are provided in firebase/database.rules.json.
+
+## Firebase setup for Online Multiplayer
+Create a dedicated Firebase project for SCOTT, enable **Authentication → Anonymous** and **Realtime Database**, then publish the rules from firebase/database.rules.json.
+
+Add these GitHub repository Actions secrets:
+- FIREBASE_API_KEY — Firebase Web API key.
+- FIREBASE_DATABASE_URL — Realtime Database URL shown in Firebase Console.
+
+The release workflow reads these secrets at build time. They are not committed to this repository. Local Wi-Fi play does not require Firebase.
 
 ## Build
-GitHub Actions runs flutter analyze, flutter test, and creates a debug APK artifact on pushes and pull requests.
+The GitHub Actions workflow generates original sound effects, runs flutter analyze and flutter test, then builds a release APK. APKs are uploaded as workflow artifacts, never committed to Git.
 
-## Developer note
-Some discard-pile reshuffle and round-start details remain unresolved in the Master Blueprint. Do not silently invent those rules while implementing them.
+## Developer
+Developed by Shartendu.

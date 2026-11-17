@@ -319,8 +319,11 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
     for (final interface in ordered) {
       for (final address in interface.addresses) {
         final ip = address.address;
-        if (ip.startsWith('192.168.') || ip.startsWith('10.') ||
-            (ip.startsWith('172.') && int.tryParse(ip.split('.').elementAtOrNull(1) ?? '') case final octet? when octet >= 16 && octet <= 31)) {
+        final parts = ip.split('.');
+        final secondOctet = parts.length > 1 ? int.tryParse(parts[1]) : null;
+        final isPrivate172 = parts.first == '172' &&
+            secondOctet != null && secondOctet >= 16 && secondOctet <= 31;
+        if (ip.startsWith('192.168.') || ip.startsWith('10.') || isPrivate172) {
           return ip;
         }
       }

@@ -22,6 +22,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   late GameState _state;
   RoundResult? _result;
   final Set<PlayingCard> _selected = {};
+  final List<Map<String, dynamic>> _history = [];
   StreamSubscription<({String playerId, Map<String, dynamic> action})>? _actionsSub;
 
   @override
@@ -38,10 +39,25 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     super.dispose();
   }
 
-  Future<void> _publish() => widget.publish(
-    GameStateCodec.publicState(_state, revealHands: _state.phase != GamePhase.waitingForTurn),
-    GameStateCodec.privateHands(_state),
-  );
+  Future<void> _publish() {
+    final publicState = GameStateCodec.publicState(_state, revealHands: _state.phase != GamePhase.waitingForTurn);
+    publicState['history'] = List<Map<String, dynamic>>.from(_history);
+    return widget.publish(publicState, GameStateCodec.privateHands(_state));
+  }
+
+  void _recordRound() {
+    final result = _result;
+    if (result == null || _history.any((entry) => entry['round'] == _state.roundNumber)) return;
+    _history.add({
+      'round': _state.roundNumber,
+      'callerId': result.callerId,
+      'successful': result.wasSuccessful,
+      'automatic': result.wasAutomatic,
+      'handTotals': result.handTotals,
+      'pointsAdded': result.pointsAdded,
+      'scores': {for (final player in _state.players) player.id: player.score},
+    });
+  }
 
   void _handleRemoteAction(String playerId, Map<String, dynamic> action) {
     if (!mounted || _state.phase != GamePhase.waitingForTurn || _state.currentPlayer.id != playerId) return;
@@ -59,6 +75,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
         _result = turn.roundResult;
       }
       _selected.clear();
+      _recordRound();
       unawaited(_publish());
       setState(() {});
     } catch (_) {
@@ -70,6 +87,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     try {
       final turn = widget.engine.show(_state, widget.hostId);
       setState(() { _state = turn.state; _result = turn.roundResult; _selected.clear(); });
+      _recordRound();
       unawaited(_publish());
     } catch (e) { _message(e.toString()); }
   }
@@ -78,6 +96,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     try {
       final turn = widget.engine.discardAndDraw(state: _state, playerId: widget.hostId, cardsToDiscard: _selected.toList(), drawSource: source);
       setState(() { _state = turn.state; _result = turn.roundResult; _selected.clear(); });
+      _recordRound();
       unawaited(_publish());
     } catch (e) { _message(e.toString()); }
   }
@@ -201,6 +220,14 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   void _scoreboard() { showModalBottomSheet<void>(context: context, builder: (_) => SafeArea(child: ListView(padding: const EdgeInsets.all(18), children: [
     const Text('Scoreboard', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
     for (final p in _state.players) ListTile(title: Text(p.name), subtitle: p.isEliminated ? const Text('ससम्मान बाहेर 😂') : null, trailing: Text('${p.score} / ${_state.targetScore}', style: const TextStyle(fontWeight: FontWeight.w900))),
+    const Divider(),
+    const Text('Round-by-round history', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
+    for (final entry in _history)
+      ListTile(
+        title: Text('Round ${entry['round']} • ${entry['successful'] == true ? 'Successful SHOW' : 'Failed SHOW'}'),
+        subtitle: Text('Caller: ${_state.playerById(entry['callerId'] as String)?.name ?? '—'}${entry['automatic'] == true ? ' • Automatic' : ''}'),
+        trailing: Text((entry['pointsAdded'] as Map).entries.map((e) => '${_state.playerById(e.key.toString())?.name ?? e.key}: +${e.value}').join(' | '), style: const TextStyle(fontSize: 10)),
+      ),
   ]))); }
 }
 
@@ -239,6 +266,14 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
 
   @override
   void dispose() { unawaited(_sub?.cancel()); super.dispose(); }
+
+  void _scoreboard() => showModalBottomSheet<void>(context: context, builder: (_) => SafeArea(child: ListView(padding: const EdgeInsets.all(18), children: [
+    const Text('Scoreboard', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+    for (final p in (_public['players'] as List).cast<Map>()) ListTile(title: Text('${p['name']}'), trailing: Text('${p['score']} / ${_public['targetScore']}')),
+    const Divider(),
+    const Text('Round History', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+    for (final entry in (_public['history'] as List? ?? const [])) ListTile(title: Text('Round ${entry['round']} • ${entry['successful'] == true ? 'Successful' : 'Failed'} SHOW'), subtitle: Text('Points: ${(entry['pointsAdded'] as Map).entries.map((e) => '${e.key}: +${e.value}').join(' | ')}')),
+  ])));
 
   @override
   Widget build(BuildContext context) {

@@ -422,7 +422,7 @@ class _PlayingCardTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final red = card.suit.isRed;
     return GestureDetector(
-      onTap: enabled ? onTap : null,
+      onTap: enabled ? () { unawaited(ScottAudio.instance.play('tap')); onTap(); } : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 160),
         width: 58, height: 82,

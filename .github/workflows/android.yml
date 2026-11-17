@@ -28,18 +28,20 @@ jobs:
           cache: true
       - name: Generate Android platform
         run: flutter create --platforms=android --org com.shartendu --project-name scott_game .
+      - name: Apply SCOTT Android network permissions
+        run: cp tool/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
       - name: Install dependencies
         run: flutter pub get
       - name: Analyze
         run: flutter analyze
       - name: Test
         run: flutter test
-      - name: Build debug APK
-        run: flutter build apk --debug
+      - name: Build release APK
+        run: flutter build apk --release --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --dart-define=FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: scott-debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          name: SCOTT-final-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 14

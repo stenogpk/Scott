@@ -97,7 +97,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   }
 
   void _announce(String playerId, {required String actionType, int discardedCount = 0, DrawSource source = DrawSource.drawPile}) {
-    final name = _state.playerById(playerId)?.name ?? 'खिलाड़ी';
+    final name = _state.playerById(_result?.callerId ?? playerId)?.name ?? 'खिलाड़ी';
     String category;
     if (_result != null) {
       if (_result!.winnerId != null) {

@@ -164,6 +164,7 @@ class OnlineRoomPage extends StatefulWidget {
 class _OnlineRoomPageState extends State<OnlineRoomPage> {
   late final FirebaseRoomService _service;
   RoomSnapshot? _room;
+  final _code = TextEditingController();
   bool _busy = false;
   String? _error;
   StreamSubscription<Map<String, dynamic>>? _gameSub;
@@ -173,7 +174,7 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
   @override
   void initState() { super.initState(); _service = FirebaseRoomService(apiKey: firebaseApiKey, databaseUrl: firebaseDatabaseUrl); }
   @override
-  void dispose() { unawaited(_gameSub?.cancel()); unawaited(_service.dispose()); super.dispose(); }
+  void dispose() { _code.dispose(); unawaited(_gameSub?.cancel()); unawaited(_service.dispose()); super.dispose(); }
 
   Future<void> _run(Future<RoomSnapshot> Function() task) async {
     setState(() { _busy = true; _error = null; });
@@ -182,7 +183,7 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
   }
 
   void _watchOnlineGame(String code) {
-    _gameSub?.cancel();
+    unawaited(_gameSub?.cancel());
     _gameSub = _service.watchGame(code).listen((message) {
       if (!mounted || _gameOpened || message['type'] != 'game') return;
       _gameOpened = true;

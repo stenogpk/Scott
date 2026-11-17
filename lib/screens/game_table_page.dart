@@ -67,6 +67,8 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
       'handTotals': result.handTotals,
       'pointsAdded': result.pointsAdded,
       'scores': {for (final player in _state.players) player.id: player.score},
+      'eliminatedPlayerIds': result.eliminatedPlayerIds,
+      'winnerId': result.winnerId,
     });
   }
 
@@ -225,9 +227,38 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   }
 
   Widget _scoreStrip() => Container(
-    width: double.infinity, color: const Color(0xFFE6F0F2),
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-    child: Text('लक्ष्य: ${_state.targetScore} अंक    •    खिलाड़ी: ${_state.players.where((p) => !p.isEliminated).length} बाकी', style: const TextStyle(fontWeight: FontWeight.w700)),
+    width: double.infinity,
+    color: const Color(0xFFE6F0F2),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'लक्ष्य: ${_state.targetScore} अंक  •  ${_state.players.where((p) => !p.isEliminated).length} खिलाड़ी बाकी',
+          style: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 5),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final player in _state.players)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Chip(
+                    visualDensity: VisualDensity.compact,
+                    backgroundColor: player.isEliminated ? const Color(0xFFFFDCDC) : Colors.white,
+                    label: Text(
+                      '${player.name}: ${player.score}${player.isEliminated ? ' • OUT' : ''}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    ),
   );
 
   Widget _turnBanner(String name, bool myTurn) => Container(
@@ -300,18 +331,54 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     ])))]);
   }
 
-  void _scoreboard() { showModalBottomSheet<void>(context: context, builder: (_) => SafeArea(child: ListView(padding: const EdgeInsets.all(18), children: [
-    const Text('Scoreboard', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-    for (final p in _state.players) ListTile(title: Text(p.name), subtitle: p.isEliminated ? const Text('ससम्मान बाहेर 😂') : null, trailing: Text('${p.score} / ${_state.targetScore}', style: const TextStyle(fontWeight: FontWeight.w900))),
-    const Divider(),
-    const Text('Round-by-round history', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
-    for (final entry in _history)
-      ListTile(
-        title: Text('Round ${entry['round']} • ${entry['successful'] == true ? 'Successful SHOW' : 'Failed SHOW'}'),
-        subtitle: Text('Caller: ${_state.playerById(entry['callerId'] as String)?.name ?? '—'}${entry['automatic'] == true ? ' • Automatic' : ''}'),
-        trailing: Text((entry['pointsAdded'] as Map).entries.map((e) => '${_state.playerById(e.key.toString())?.name ?? e.key}: +${e.value}').join(' | '), style: const TextStyle(fontSize: 10)),
+  void _scoreboard() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(18),
+          children: [
+            const Text('Scoreboard', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+            for (final player in _state.players)
+              ListTile(
+                title: Text(player.name),
+                subtitle: player.isEliminated ? const Text('ससम्मान बाहेर 😂') : null,
+                trailing: Text('${player.score} / ${_state.targetScore}', style: const TextStyle(fontWeight: FontWeight.w900)),
+              ),
+            const Divider(),
+            const Text('Round-by-round history', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 17)),
+            for (final entry in _history)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Round ${entry['round']} • ${entry['successful'] == true ? 'Successful' : 'Failed'} SHOW${entry['automatic'] == true ? ' • Automatic' : ''}',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      Text('Caller: ${_state.playerById(entry['callerId'] as String)?.name ?? '—'}'),
+                      Text('हाथ का जोड़: ${(entry['handTotals'] as Map).entries.map((e) => '${_state.playerById(e.key.toString())?.name ?? e.key}: ${e.value}').join(' • ')}'),
+                      Text('अंक मिले: ${(entry['pointsAdded'] as Map).entries.map((e) => '${_state.playerById(e.key.toString())?.name ?? e.key}: +${e.value}').join(' • ')}'),
+                      Text('कुल स्कोर: ${(entry['scores'] as Map).entries.map((e) => '${_state.playerById(e.key.toString())?.name ?? e.key}: ${e.value}').join(' • ')}'),
+                      if ((entry['eliminatedPlayerIds'] as List? ?? const []).isNotEmpty)
+                        Text(
+                          'ससम्मान बाहेर 😂: ${(entry['eliminatedPlayerIds'] as List).map((id) => _state.playerById(id.toString())?.name ?? id).join(', ')}',
+                          style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
+                        ),
+                      if (entry['winnerId'] != null)
+                        Text('विजेता: ${_state.playerById(entry['winnerId'] as String)?.name ?? '—'}', style: const TextStyle(fontWeight: FontWeight.w900)),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
-  ]))); }
+    );
+  }
 }
 
 class RemoteGameTablePage extends StatefulWidget {

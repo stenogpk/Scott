@@ -493,7 +493,11 @@ class _PlayerList extends StatelessWidget {
           contentPadding: EdgeInsets.zero,
           leading: CircleAvatar(child: Text('${i + 1}')),
           title: Text(players[i].name, style: const TextStyle(fontWeight: FontWeight.w700)),
-          trailing: players[i].isHost ? const Chip(label: Text('HOST')) : const Icon(Icons.check_circle, color: Colors.green),
+          trailing: players[i].isHost
+              ? const Chip(label: Text('HOST'))
+              : players[i].isConnected
+                  ? const Icon(Icons.check_circle, color: Colors.green)
+                  : const Chip(label: Text('DISCONNECTED'), backgroundColor: Color(0xFFFFE0E0)),
         ),
     ])),
   );

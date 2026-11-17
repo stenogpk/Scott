@@ -27,6 +27,10 @@ class LocalRoomServer {
         request.response..statusCode = HttpStatus.ok..write('SCOTT local room')..close();
         return;
       }
+      if (request.uri.queryParameters['code'] != _roomCode) {
+        request.response..statusCode = HttpStatus.forbidden..write('Invalid room code')..close();
+        return;
+      }
       final socket = await WebSocketTransformer.upgrade(request);
       _clients.add(socket);
       socket.listen((raw) {

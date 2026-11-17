@@ -8,9 +8,9 @@ class LocalRoomClient {
   final _messages = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get messages => _messages.stream;
 
-  Future<void> connect({required String hostAddress, int port = 8765, required String playerName}) async {
+  Future<void> connect({required String hostAddress, int port = 8765, required String roomCode, required String playerName}) async {
     if (_socket != null) throw StateError('Already connected to a room.');
-    final socket = await WebSocket.connect('ws://${hostAddress.trim()}:$port');
+    final socket = await WebSocket.connect('ws://${hostAddress.trim()}:$port?code=${Uri.encodeQueryComponent(roomCode.trim().toUpperCase())}');
     _socket = socket;
     socket.listen((raw) {
       final message = Map<String, dynamic>.from(jsonDecode(raw as String) as Map);

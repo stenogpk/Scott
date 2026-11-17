@@ -96,6 +96,37 @@ void main() {
       ), throwsStateError);
     });
 
+    test('a zero-total hand triggers automatic SHOW immediately after draw', () {
+      final state = GameState(
+        players: [
+          PlayerState(id: 'a', name: 'A', hand: [
+            c(CardRank.nine, CardSuit.hearts),
+            c(CardRank.nine, CardSuit.clubs),
+            c(CardRank.nine, CardSuit.spades),
+            c(CardRank.two, CardSuit.diamonds),
+          ]),
+          PlayerState(id: 'b', name: 'B', hand: [c(CardRank.king, CardSuit.hearts)]),
+        ],
+        drawPile: [c(CardRank.nine, CardSuit.diamonds)],
+        discardPile: const [],
+        currentPlayerIndex: 0,
+        targetScore: 100,
+        phase: GamePhase.waitingForTurn,
+      );
+      final turn = ScottGameEngine().discardAndDraw(
+        state: state,
+        playerId: 'a',
+        cardsToDiscard: [c(CardRank.two, CardSuit.diamonds)],
+        drawSource: DrawSource.drawPile,
+      );
+      expect(turn.roundResult, isNotNull);
+      expect(turn.roundResult!.wasAutomatic, isTrue);
+      expect(turn.roundResult!.wasSuccessful, isTrue);
+      expect(turn.roundResult!.callerHandTotal, 0);
+      expect(turn.state.phase, GamePhase.roundComplete);
+      expect(turn.state.players[1].score, 13);
+    });
+
     test('same-rank pair discards together and draws exactly one', () {
       final pair = [c(CardRank.king, CardSuit.hearts), c(CardRank.king, CardSuit.spades)];
       final state = GameState(

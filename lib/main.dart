@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'network/firebase_room_service.dart';
 import 'network/local_room_client.dart';
 import 'network/local_room_server.dart';
@@ -32,24 +33,102 @@ class ScottApp extends StatelessWidget {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
       ),
     ),
-    home: const ScottHomePage(),
+    home: const ProfileGate(),
+  );
+}
+
+class ProfileGate extends StatefulWidget {
+  const ProfileGate({super.key});
+  @override
+  State<ProfileGate> createState() => _ProfileGateState();
+}
+
+class _ProfileGateState extends State<ProfileGate> {
+  Future<Map<String, String?>>? _profile;
+  @override
+  void initState() { super.initState(); _profile = _load(); }
+  Future<Map<String, String?>> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    return {'name': prefs.getString('scott_profile_name'), 'gender': prefs.getString('scott_profile_gender')};
+  }
+  Future<void> _save(String name, String gender) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('scott_profile_name', name.trim());
+    await prefs.setString('scott_profile_gender', gender);
+    if (mounted) setState(() => _profile = _load());
+  }
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, String?>>(
+    future: _profile,
+    builder: (context, snapshot) {
+      if (!snapshot.hasData) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      final name = snapshot.data!['name'];
+      final gender = snapshot.data!['gender'];
+      if (name == null || name.trim().isEmpty || gender == null) {
+        return ProfileEditorPage(onSaved: _save, firstRun: true);
+      }
+      return ScottHomePage(profileName: name, profileGender: gender, onProfileChanged: _save);
+    },
+  );
+}
+
+class ProfileEditorPage extends StatefulWidget {
+  const ProfileEditorPage({super.key, required this.onSaved, this.firstRun = false, this.initialName = '', this.initialGender = 'अन्य'});
+  final Future<void> Function(String name, String gender) onSaved;
+  final bool firstRun;
+  final String initialName;
+  final String initialGender;
+  @override
+  State<ProfileEditorPage> createState() => _ProfileEditorPageState();
+}
+
+class _ProfileEditorPageState extends State<ProfileEditorPage> {
+  late final TextEditingController _name = TextEditingController(text: widget.initialName);
+  late String _gender = widget.initialGender;
+  bool _saving = false;
+  @override
+  void dispose() { _name.dispose(); super.dispose(); }
+  Future<void> _save() async {
+    final name = _name.text.trim();
+    if (name.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('अपना नाम लिखें।'))); return; }
+    setState(() => _saving = true);
+    await widget.onSaved(name, _gender);
+    if (mounted && !widget.firstRun) Navigator.pop(context);
+  }
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(widget.firstRun ? 'अपना प्रोफाइल बनाएँ' : 'प्रोफाइल एडिट करें'), automaticallyImplyLeading: !widget.firstRun),
+    body: SafeArea(child: Center(child: SingleChildScrollView(padding: const EdgeInsets.all(24), child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 480), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const Icon(Icons.account_circle_rounded, size: 84, color: Color(0xFF168B87)),
+      const SizedBox(height: 12),
+      Text(widget.firstRun ? 'SCOTT में आपका स्वागत है' : 'अपनी जानकारी अपडेट करें', textAlign: TextAlign.center, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900)),
+      const SizedBox(height: 24),
+      TextField(controller: _name, maxLength: 18, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'आपका नाम', prefixIcon: Icon(Icons.person_outline))),
+      const SizedBox(height: 12),
+      DropdownButtonFormField<String>(value: _gender, decoration: const InputDecoration(labelText: 'Gender'), items: const [DropdownMenuItem(value: 'पुरुष', child: Text('पुरुष')), DropdownMenuItem(value: 'महिला', child: Text('महिला')), DropdownMenuItem(value: 'अन्य', child: Text('अन्य / बताना नहीं चाहते'))], onChanged: (v) { if (v != null) setState(() => _gender = v); }),
+      const SizedBox(height: 22),
+      FilledButton.icon(onPressed: _saving ? null : _save, icon: const Icon(Icons.check_circle_outline), label: Text(_saving ? 'सेव हो रहा है…' : 'प्रोफाइल सेव करें')),
+    ]))))),
   );
 }
 
 class ScottHomePage extends StatefulWidget {
-  const ScottHomePage({super.key});
+  const ScottHomePage({super.key, required this.profileName, required this.profileGender, required this.onProfileChanged});
+  final String profileName;
+  final String profileGender;
+  final Future<void> Function(String name, String gender) onProfileChanged;
   @override
   State<ScottHomePage> createState() => _ScottHomePageState();
 }
 
 class _ScottHomePageState extends State<ScottHomePage> {
-  final _name = TextEditingController();
+  late final TextEditingController _name = TextEditingController(text: widget.profileName);
   @override
   void dispose() { _name.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('SCOTT', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)), actions: [IconButton(tooltip: 'Settings', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottSettingsPage())), icon: const Icon(Icons.settings_outlined))]),
+    appBar: AppBar(title: const Text('SCOTT', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)), actions: [IconButton(tooltip: 'Edit Profile', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileEditorPage(onSaved: widget.onProfileChanged, initialName: widget.profileName, initialGender: widget.profileGender))), icon: const Icon(Icons.edit_outlined)), IconButton(tooltip: 'Settings', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottSettingsPage())), icon: const Icon(Icons.settings_outlined))]),
     body: SafeArea(child: Center(child: SingleChildScrollView(
       padding: const EdgeInsets.all(22),
       child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 520), child: Column(
@@ -73,7 +152,7 @@ class _ScottHomePageState extends State<ScottHomePage> {
             ]),
           ),
           const SizedBox(height: 22),
-          TextField(controller: _name, textCapitalization: TextCapitalization.words, maxLength: 18, decoration: const InputDecoration(labelText: 'आपका खिलाड़ी नाम', prefixIcon: Icon(Icons.person_outline))),
+          Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)), child: Row(children: [const CircleAvatar(child: Icon(Icons.person)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(widget.profileName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)), Text(widget.profileGender, style: const TextStyle(color: Colors.blueGrey))])), IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileEditorPage(onSaved: widget.onProfileChanged, initialName: widget.profileName, initialGender: widget.profileGender))), icon: const Icon(Icons.edit_outlined))])),
           const SizedBox(height: 12),
           _HomeModeCard(icon: Icons.public, title: 'Online Multiplayer', subtitle: 'दूर बैठे दोस्तों के साथ Room Code से खेलें', onTap: () => _open(context, OnlineRoomPage(playerName: _playerName))),
           const SizedBox(height: 12),
@@ -87,7 +166,7 @@ class _ScottHomePageState extends State<ScottHomePage> {
     ))),
   );
 
-  String get _playerName => _name.text.trim().isEmpty ? 'खिलाड़ी' : _name.text.trim();
+  String get _playerName => widget.profileName;
   void _open(BuildContext context, Widget page) {
     if (_name.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('पहले अपना खिलाड़ी नाम लिखें।')));

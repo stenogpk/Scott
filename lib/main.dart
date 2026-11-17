@@ -99,9 +99,10 @@ class _ProfileEditorPageState extends State<ProfileEditorPage> {
     final name = _name.text.trim();
     if (name.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('अपना नाम लिखें।'))); return; }
     setState(() => _saving = true);
+    final navigator = Navigator.of(context);
     await widget.onSaved(name, _gender);
     if (!mounted) return;
-    if (!widget.firstRun) Navigator.of(context).pop();
+    if (!widget.firstRun) navigator.pop();
   }
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -119,11 +120,12 @@ class _ProfileEditorPageState extends State<ProfileEditorPage> {
       if (!widget.firstRun) ...[
         const SizedBox(height: 18),
         OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: Colors.red), onPressed: _saving ? null : () async {
+          final navigator = Navigator.of(context);
           final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('प्रोफाइल डिलीट करें?'), content: const Text('आपका सेव किया हुआ नाम और Gender इस फोन से हट जाएगा। अगली बार ऐप खोलने पर नया प्रोफाइल बनाना होगा।'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('रद्द करें')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('हाँ, डिलीट करें'))]));
           if (confirmed == true) {
             await widget.onDeleted();
             if (!mounted) return;
-            if (!widget.firstRun) Navigator.of(context).pop();
+            if (!widget.firstRun) navigator.pop();
           }
         }, icon: const Icon(Icons.delete_outline), label: const Text('प्रोफाइल डिलीट करें')),
       ],

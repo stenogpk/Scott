@@ -132,7 +132,7 @@ void main() {
         cardsToDiscard: [c(CardRank.two, CardSuit.hearts)],
         drawSource: DrawSource.drawPile,
       );
-      expect(turn.state.drawPile, isEmpty);
+      expect(turn.state.drawPile.length, 1);
       expect(turn.state.discardPile, isEmpty);
       expect(turn.state.players.first.hand.length, 1);
     });

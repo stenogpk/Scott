@@ -34,7 +34,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
 
   @override
   void dispose() {
-    _actionsSub?.cancel();
+    unawaited(_actionsSub?.cancel());
     super.dispose();
   }
 
@@ -86,7 +86,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     final caller = _result?.callerId;
     final next = widget.engine.startNextRound(_state, starterId: caller);
     setState(() { _state = next; _result = null; _selected.clear(); });
-    _publish();
+    unawaited(_publish());
   }
 
   void _message(String message) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
@@ -238,7 +238,7 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
   }
 
   @override
-  void dispose() { _sub?.cancel(); super.dispose(); }
+  void dispose() { unawaited(_sub?.cancel()); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {

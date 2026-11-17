@@ -64,11 +64,11 @@ class FirebaseRoomService {
     await _ensureSignedIn();
     final room = await getRoom(code);
     if (room.hostId != _userId) throw StateError('Only the room host can publish the game state.');
-    await _putPath('rooms/${room.code}/public/gameState', jsonEncode(publicState));
-    await _putPath('rooms/${room.code}/public/started', 'true');
     for (final entry in privateHands.entries) {
       await _putPath('rooms/${room.code}/privateHands/${entry.key}', jsonEncode(entry.value));
     }
+    await _putPath('rooms/${room.code}/public/gameState', jsonEncode(publicState));
+    await _putPath('rooms/${room.code}/public/started', 'true');
     await _putPath('rooms/${room.code}/public/updatedAt', jsonEncode(DateTime.now().millisecondsSinceEpoch));
   }
 

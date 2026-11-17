@@ -192,6 +192,12 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
           _opponents(),
           const SizedBox(height: 16),
           _tablePiles(),
+          if (_state.discardPile.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text('खुले फेंके गए पत्ते', style: TextStyle(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Wrap(spacing: 5, runSpacing: 5, children: _state.discardPile.map((card) => Text(card.toString(), style: TextStyle(fontWeight: FontWeight.w700, color: card.suit.isRed ? Colors.red : Colors.black87))).toList()),
+          ],
           const SizedBox(height: 16),
           const Text('आपके पत्ते', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17)),
           const SizedBox(height: 8),
@@ -375,9 +381,13 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
                     Text('जोड़: ${p['handTotal']}'),
                     Text(((p['hand'] as List? ?? const []).map((card) => '${card['rank']}/${card['suit']}')).join(' • '), style: const TextStyle(fontSize: 9)),
                   ])
-                : const Text('🂠 🂠 🂠 🂠 🂠'),
+                : Row(mainAxisSize: MainAxisSize.min, children: List.generate((p['handCount'] as int? ?? 0), (_) => const Padding(padding: EdgeInsets.only(left: 2), child: _CardBack()))),
           ),
         const SizedBox(height: 12),
+        if ((_public['discardPile'] as List? ?? const []).isNotEmpty) ...[
+          const Text('खुले फेंके गए पत्ते', style: TextStyle(fontWeight: FontWeight.w800)),
+          Wrap(spacing: 6, children: (_public['discardPile'] as List).map((v) { final card = GameStateCodec.cardFromJson(Map<String, dynamic>.from(v as Map)); return Text(card.toString(), style: TextStyle(color: card.suit.isRed ? Colors.red : Colors.black87, fontWeight: FontWeight.w700)); }).toList()),
+        ],
         Text(myTurn ? 'आपकी बारी है' : 'अभी ${players.firstWhere((p) => p['id'] == currentId)['name']} की बारी है', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
         if (phase == GamePhase.roundComplete.name) const Text('राउंड पूरा हुआ। अगले राउंड के लिए Host की प्रतीक्षा करें।'),
         if (winner != null) Text('विजेता: ${players.firstWhere((p) => p['id'] == winner)['name']}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),

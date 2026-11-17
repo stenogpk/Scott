@@ -30,6 +30,8 @@ jobs:
         run: flutter create --platforms=android --org com.shartendu --project-name scott_game .
       - name: Apply SCOTT Android network permissions
         run: cp tool/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+      - name: Generate original sound effects
+        run: python3 tool/generate_sounds.py
       - name: Install dependencies
         run: flutter pub get
       - name: Analyze

@@ -11,7 +11,9 @@ class FirebaseRoomService {
   final String databaseUrl;
   final http.Client _client;
   String? _idToken;
+  String? _refreshToken;
   String? _userId;
+  DateTime? _tokenExpiresAt;
   String? get userId => _userId;
   bool get isConfigured => apiKey.isNotEmpty && databaseUrl.startsWith('https://');
 
@@ -22,7 +24,10 @@ class FirebaseRoomService {
     if (response.statusCode != 200) throw StateError('Guest sign-in failed: ${response.body}');
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     _idToken = json['idToken'] as String;
+    _refreshToken = json['refreshToken'] as String?;
     _userId = json['localId'] as String;
+    final expiresIn = int.tryParse(json['expiresIn']?.toString() ?? '') ?? 3600;
+    _tokenExpiresAt = DateTime.now().add(Duration(seconds: expiresIn));
   }
 
   Future<RoomSnapshot> createRoom({required String playerName, int targetScore = 150}) async {
@@ -136,7 +141,43 @@ class FirebaseRoomService {
   Uri _pathUri(String path) => Uri.parse('${databaseUrl.replaceFirst(RegExp(r'/+$'), '')}/$path.json?auth=$_idToken');
 
   Future<void> _ensureSignedIn() async {
-    if (_idToken == null || _userId == null) await signInAsGuest();
+    if (_idToken == null || _userId == null) {
+      await signInAsGuest();
+      return;
+    }
+    final expiresAt = _tokenExpiresAt;
+    if (expiresAt == null || DateTime.now().isBefore(expiresAt.subtract(const Duration(minutes: 2)))) {
+      return;
+    }
+    final refreshToken = _refreshToken;
+    if (refreshToken == null || refreshToken.isEmpty) {
+      await signInAsGuest();
+      return;
+    }
+    final uri = Uri.parse('https://securetoken.googleapis.com/v1/token?key=$apiKey');
+    final response = await _client.post(
+      uri,
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: {
+        'grant_type': 'refresh_token',
+        'refresh_token': refreshToken,
+      },
+    );
+    if (response.statusCode != 200) {
+      // Fall back to a fresh anonymous identity if refresh is no longer valid.
+      _idToken = null;
+      _refreshToken = null;
+      _userId = null;
+      _tokenExpiresAt = null;
+      await signInAsGuest();
+      return;
+    }
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    _idToken = (json['id_token'] ?? json['idToken']) as String;
+    _refreshToken = (json['refresh_token'] ?? json['refreshToken']) as String? ?? refreshToken;
+    _userId = (json['user_id'] ?? json['localId']) as String? ?? _userId;
+    final expiresIn = int.tryParse((json['expires_in'] ?? json['expiresIn'])?.toString() ?? '') ?? 3600;
+    _tokenExpiresAt = DateTime.now().add(Duration(seconds: expiresIn));
   }
 
   String _newRoomCode() {

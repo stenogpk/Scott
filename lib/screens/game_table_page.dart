@@ -114,39 +114,31 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   }
 
   void _announce(String playerId, {required String actionType, int discardedCount = 0, DrawSource source = DrawSource.drawPile}) {
-    final name = _state.playerById(_result?.callerId ?? playerId)?.name ?? 'खिलाड़ी';
-    String category;
-    if (_result != null) {
-      if (_result!.winnerId != null) {
-        category = 'winner';
-      } else if (_result!.eliminatedPlayerIds.isNotEmpty) {
-        category = 'elimination';
-      } else if (_result!.wasAutomatic) {
-        category = 'automatic_show';
-      } else if (!_result!.wasSuccessful) {
-        category = 'failed_show';
-      } else if (_result!.pointsAdded.values.any((value) => value >= 25)) {
-        category = 'high_points';
-      } else {
-        category = 'smart_move';
-      }
-    } else if (actionType == 'show') {
-      category = 'smart_move';
-    } else if (source == DrawSource.previousPlayerDiscard) {
-      category = 'previous_pickup';
-    } else if (discardedCount >= 3) {
-      category = 'triple_quad';
-    } else if (discardedCount == 2) {
-      category = 'pair_discard';
+    // Commentary is reserved for meaningful round outcomes, never routine turns.
+    final result = _result;
+    if (result == null) return;
+    late final String category;
+    late final String name;
+    if (result.winnerId != null) {
+      category = 'winner';
+      name = _state.playerById(result.winnerId!)?.name ?? 'खिलाड़ी';
+    } else if (result.eliminatedPlayerIds.isNotEmpty) {
+      category = 'elimination';
+      name = _state.playerById(result.eliminatedPlayerIds.first)?.name ?? 'खिलाड़ी';
+    } else if (result.wasAutomatic) {
+      category = 'automatic_show';
+      name = _state.playerById(result.callerId)?.name ?? 'खिलाड़ी';
+    } else if (!result.wasSuccessful) {
+      category = 'failed_show';
+      name = _state.playerById(result.callerId)?.name ?? 'खिलाड़ी';
+    } else if (result.pointsAdded.values.any((value) => value >= 25)) {
+      category = 'high_points';
+      final hitPlayerId = result.pointsAdded.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+      name = _state.playerById(hitPlayerId)?.name ?? 'खिलाड़ी';
     } else {
-      category = 'smart_move';
+      return;
     }
     _commentaryText = _commentary.next(category, name);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(_commentaryText!),
-      duration: const Duration(milliseconds: 4600),
-      behavior: SnackBarBehavior.floating,
-    ));
   }
 
   void _playRoundSounds() {
@@ -203,6 +195,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
       ]),
       body: SafeArea(child: Column(children: [
         _scoreStrip(),
+        if (_commentaryText != null) _commentaryBanner(_commentaryText!),
         Expanded(child: ListView(padding: const EdgeInsets.all(14), children: [
           if (isFinished) _winnerPanel() else if (_state.phase == GamePhase.roundComplete) _roundResultPanel() else _turnBanner(current.name, isMyTurn),
           const SizedBox(height: 12),
@@ -236,6 +229,21 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
       ])),
     );
   }
+
+  Widget _commentaryBanner(String message) => Container(
+    margin: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(colors: [Color(0xFFFFD166), Color(0xFFFF8C42)]),
+      borderRadius: BorderRadius.circular(18),
+      boxShadow: const [BoxShadow(color: Color(0x33222222), blurRadius: 8, offset: Offset(0, 3))],
+    ),
+    child: Row(children: [
+      const Icon(Icons.campaign_rounded, size: 30, color: Color(0xFF542900)),
+      const SizedBox(width: 12),
+      Expanded(child: Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 19, height: 1.25, fontWeight: FontWeight.w900, color: Color(0xFF542900)))),
+    ]),
+  );
 
   Widget _scoreStrip() => Container(
     width: double.infinity,
@@ -517,17 +525,36 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
         Text('लक्ष्य: ${_public['targetScore']} • Draw pile: ${_public['drawPileCount']}', style: const TextStyle(fontWeight: FontWeight.w800)),
         const SizedBox(height: 10),
         for (final p in players)
-          ListTile(
-            dense: true,
-            title: Text('${p['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-            subtitle: Text(p['isEliminated'] == true ? 'ससम्मान बाहेर 😂' : 'स्कोर: ${p['score']}'),
-            trailing: reveal
-                ? Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text('जोड़: ${p['handTotal']}'),
-                    Text(((p['hand'] as List? ?? const []).map((card) => '${card['rank']}/${card['suit']}')).join(' • '), style: const TextStyle(fontSize: 9)),
-                  ])
-                : Row(mainAxisSize: MainAxisSize.min, children: List.generate((p['handCount'] as int? ?? 0), (_) => const Padding(padding: EdgeInsets.only(left: 2), child: _CardBack()))),
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: p['id'] == currentId
+                    ? const [Color(0xFFD9F7EF), Color(0xFFBCE8DE)]
+                    : p['isEliminated'] == true
+                        ? const [Color(0xFFFFE2E2), Color(0xFFFFF0F0)]
+                        : const [Colors.white, Color(0xFFEAF1FF)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: p['id'] == currentId ? const Color(0xFF16A6A1) : const Color(0xFFD5DFEA), width: p['id'] == currentId ? 2 : 1),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Row(children: [
+                Expanded(child: Text('${p['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900))),
+                Text('स्कोर: ${p['score']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                if (p['isEliminated'] == true) const Padding(padding: EdgeInsets.only(left: 6), child: Text('OUT 😂', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w900))),
+              ]),
+              const SizedBox(height: 7),
+              if (reveal) ...[
+                Text('हाथ का जोड़: ${p['handTotal']}', style: const TextStyle(fontWeight: FontWeight.w800)),
+                Wrap(spacing: 5, runSpacing: 5, children: ((p['hand'] as List? ?? const []).map((card) => Text('${card['rank']}/${card['suit']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12))).toList())),
+              ] else
+                Row(children: List.generate((p['handCount'] as int? ?? 0), (_) => const Padding(padding: EdgeInsets.only(right: 3), child: _CardBack()))),
+            ]),
           ),
+        if (_public['commentary'] is String && (_public['commentary'] as String).isNotEmpty)
+          _sharedCommentaryBanner(_public['commentary'] as String),
         const SizedBox(height: 12),
         if ((_public['discardPile'] as List? ?? const []).isNotEmpty) ...[
           const Text('खुले फेंके गए पत्ते', style: TextStyle(fontWeight: FontWeight.w800)),
@@ -570,6 +597,21 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
     );
   }
 }
+
+Widget _sharedCommentaryBanner(String message) => Container(
+  margin: const EdgeInsets.symmetric(vertical: 12),
+  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+  decoration: BoxDecoration(
+    gradient: const LinearGradient(colors: [Color(0xFFFFD166), Color(0xFFFF8C42)]),
+    borderRadius: BorderRadius.circular(18),
+    boxShadow: const [BoxShadow(color: Color(0x33222222), blurRadius: 8, offset: Offset(0, 3))],
+  ),
+  child: Row(children: [
+    const Icon(Icons.campaign_rounded, size: 30, color: Color(0xFF542900)),
+    const SizedBox(width: 12),
+    Expanded(child: Text(message, textAlign: TextAlign.center, style: const TextStyle(fontSize: 19, height: 1.25, fontWeight: FontWeight.w900, color: Color(0xFF542900)))),
+  ]),
+);
 
 class _PlayingCardTile extends StatelessWidget {
   const _PlayingCardTile({required this.card, required this.selected, required this.enabled, required this.onTap});

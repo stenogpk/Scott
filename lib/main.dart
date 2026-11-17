@@ -9,6 +9,7 @@ import 'network/room_models.dart';
 import 'game/scott_game_engine.dart';
 import 'screens/game_table_page.dart';
 import 'network/game_state_codec.dart';
+import 'services/scott_audio.dart';
 
 const firebaseApiKey = String.fromEnvironment('FIREBASE_API_KEY');
 const firebaseDatabaseUrl = String.fromEnvironment('FIREBASE_DATABASE_URL');
@@ -48,7 +49,7 @@ class _ScottHomePageState extends State<ScottHomePage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('SCOTT', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2))),
+    appBar: AppBar(title: const Text('SCOTT', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)), actions: [IconButton(tooltip: 'Settings', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottSettingsPage())), icon: const Icon(Icons.settings_outlined))]),
     body: SafeArea(child: Center(child: SingleChildScrollView(
       padding: const EdgeInsets.all(22),
       child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 520), child: Column(
@@ -93,6 +94,37 @@ class _ScottHomePageState extends State<ScottHomePage> {
       return;
     }
     Navigator.push(context, MaterialPageRoute(builder: (_) => page));
+  }
+}
+
+class ScottSettingsPage extends StatefulWidget {
+  const ScottSettingsPage({super.key});
+  @override
+  State<ScottSettingsPage> createState() => _ScottSettingsPageState();
+}
+class _ScottSettingsPageState extends State<ScottSettingsPage> {
+  @override
+  Widget build(BuildContext context) {
+    final audio = ScottAudio.instance;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Settings')),
+      body: ListView(padding: const EdgeInsets.all(20), children: [
+        SwitchListTile(
+          title: const Text('Sound Effects', style: TextStyle(fontWeight: FontWeight.w800)),
+          subtitle: const Text('कार्ड, शो, शफल और जीत की आवाज़ें'),
+          value: audio.enabled,
+          onChanged: (value) => setState(() => audio.enabled = value),
+        ),
+        const SizedBox(height: 12),
+        const Text('Volume', style: TextStyle(fontWeight: FontWeight.w800)),
+        Slider(value: audio.volume, min: 0, max: 1, divisions: 10, label: '${(audio.volume * 100).round()}%', onChanged: (value) => setState(() => audio.volume = value)),
+        FilledButton.tonalIcon(onPressed: () => audio.play('tap'), icon: const Icon(Icons.volume_up), label: const Text('Test Sound')),
+        const Divider(height: 30),
+        const ListTile(title: Text('Online Multiplayer'), subtitle: Text('Firebase Guest Authentication और Realtime Database')),
+        const ListTile(title: Text('Local Wi-Fi'), subtitle: Text('एक ही Wi-Fi / Hotspot पर बिना इंटरनेट')),
+        const ListTile(title: Text('Developer'), subtitle: Text('Developed by Shartendu')),
+      ]),
+    );
   }
 }
 

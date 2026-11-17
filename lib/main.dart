@@ -393,17 +393,19 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
   Future<void> _join() async {
     setState(() { _busy = true; _error = null; });
     try {
-      await _client.connect(hostAddress: _ip.text.trim(), roomCode: _code.text.trim(), playerName: widget.playerName);
+      // Subscribe before the join packet is sent so the initial welcome/room
+      // messages cannot race ahead of the UI listener.
       _sub = _client.messages.listen((message) {
         if (!mounted) return;
         if (message['type'] == 'room') setState(() => _room = RoomSnapshot.fromJson(Map<String, dynamic>.from(message['room'] as Map)));
         if (message['type'] == 'welcome') setState(() => _room = RoomSnapshot.fromJson(Map<String, dynamic>.from(message['room'] as Map)));
         if (message['type'] == 'error') setState(() => _error = message['message'] as String?);
-        if (message['type'] == 'game' && !_gameOpened) {
+        if (message['type'] == 'game' && !_gameOpened && _client.playerId != null) {
           _gameOpened = true;
           Navigator.push(context, MaterialPageRoute(builder: (_) => RemoteGameTablePage(messages: _client.messages, sendAction: _client.sendAction, playerId: _client.playerId!, initialMessage: message)));
         }
       });
+      await _client.connect(hostAddress: _ip.text.trim(), roomCode: _code.text.trim(), playerName: widget.playerName);
       if (mounted) setState(() => _busy = false);
     } catch (e) { if (mounted) setState(() { _error = e.toString(); _busy = false; }); }
   }

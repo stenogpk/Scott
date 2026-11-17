@@ -283,6 +283,7 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
   final _client = LocalRoomClient();
   final _actions = StreamController<({String playerId, Map<String, dynamic> action})>.broadcast();
   bool _gameOpened = false;
+  int _target = 150;
   final _ip = TextEditingController();
   final _code = TextEditingController();
   String? _hostIp;
@@ -317,8 +318,8 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
     try {
       final ip = await _findIp();
       if (ip == null) throw StateError('Wi-Fi IP नहीं मिला। दोनों फोन को एक ही Wi-Fi या Hotspot से जोड़ें।');
-      final code = await _server.start(hostName: widget.playerName, onRoomChanged: (room) { if (mounted) setState(() => _room = room); }, onAction: (playerId, action) => _actions.add((playerId: playerId, action: action)));
-      if (mounted) setState(() { _hostIp = ip; _room = RoomSnapshot(code: code, hostId: _server.players.first.id, players: _server.players); _busy = false; });
+      final code = await _server.start(hostName: widget.playerName, targetScore: _target, onRoomChanged: (room) { if (mounted) setState(() => _room = room); }, onAction: (playerId, action) => _actions.add((playerId: playerId, action: action)));
+      if (mounted) setState(() { _hostIp = ip; _room = RoomSnapshot(code: code, hostId: _server.players.first.id, players: _server.players, targetScore: _target); _busy = false; });
     } catch (e) { if (mounted) setState(() { _error = e.toString(); _busy = false; }); }
   }
 
@@ -326,7 +327,7 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
     if (_server.players.length < 2) return;
     final engine = ScottGameEngine();
     final participants = _server.players.map((p) => (id: p.id, name: p.name)).toList();
-    final state = engine.startGame(participants: participants, targetScore: 150);
+    final state = engine.startGame(participants: participants, targetScore: _room?.targetScore ?? _target);
     Navigator.push(context, MaterialPageRoute(builder: (_) => HostGameTablePage(
       engine: engine,
       initialState: state,
@@ -364,6 +365,8 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
           const Text('नया Local Room बनाएँ', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
           const SizedBox(height: 8),
           const Text('यह फोन Host बनेगा। दूसरे खिलाड़ी इसी Wi-Fi या आपके Hotspot से जुड़ेंगे।'),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<int>(value: _target, decoration: const InputDecoration(labelText: 'Target Score'), items: const [100, 150, 200].map((v) => DropdownMenuItem(value: v, child: Text('$v अंक'))).toList(), onChanged: (v) => setState(() => _target = v ?? 150)),
           const SizedBox(height: 12),
           FilledButton.icon(onPressed: _busy ? null : _host, icon: const Icon(Icons.wifi_tethering), label: const Text('Create Local Room')),
         ]))),

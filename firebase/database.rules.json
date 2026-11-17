@@ -25,8 +25,8 @@
           }
         },
         "actions": {
+          ".read": "auth != null && auth.uid === root.child('rooms').child($roomCode).child('public').child('hostId').val()",
           "$playerId": {
-            ".read": "auth != null && auth.uid === root.child('rooms').child($roomCode).child('public').child('hostId').val()",
             ".write": "auth != null && (auth.uid === $playerId || auth.uid === root.child('rooms').child($roomCode).child('public').child('hostId').val())"
           }
         }

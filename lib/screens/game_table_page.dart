@@ -5,6 +5,7 @@ import '../game/playing_card.dart';
 import '../game/scott_game_engine.dart';
 import '../network/game_state_codec.dart';
 import '../services/scott_audio.dart';
+import '../game/commentary.dart';
 typedef RoomAction = ({String playerId, Map<String, dynamic> action});
 
 class HostGameTablePage extends StatefulWidget {
@@ -24,6 +25,8 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   RoundResult? _result;
   final Set<PlayingCard> _selected = {};
   final List<Map<String, dynamic>> _history = [];
+  final ScottCommentary _commentary = ScottCommentary();
+  String? _commentaryText;
   StreamSubscription<({String playerId, Map<String, dynamic> action})>? _actionsSub;
 
   @override
@@ -43,6 +46,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   Future<void> _publish() {
     final publicState = GameStateCodec.publicState(_state, revealHands: _state.phase != GamePhase.waitingForTurn);
     publicState['history'] = List<Map<String, dynamic>>.from(_history);
+    publicState['commentary'] = _commentaryText;
     return widget.publish(publicState, GameStateCodec.privateHands(_state));
   }
 
@@ -78,12 +82,49 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
       _selected.clear();
       _playRoundSounds();
       _playRoundSounds();
+      _announce(playerId, actionType: action['type'] as String? ?? 'discard', discardedCount: (action['cards'] as List? ?? const []).length, source: action['source'] == 'previousPlayerDiscard' ? DrawSource.previousPlayerDiscard : DrawSource.drawPile);
       _recordRound();
       unawaited(_publish());
       setState(() {});
     } catch (_) {
       widget.sendToPlayer(playerId, {'type': 'actionError', 'message': 'यह चाल मान्य नहीं है। फिर से प्रयास करें।'});
     }
+  }
+
+  void _announce(String playerId, {required String actionType, int discardedCount = 0, DrawSource source = DrawSource.drawPile}) {
+    final name = _state.playerById(playerId)?.name ?? 'खिलाड़ी';
+    String category;
+    if (_result != null) {
+      if (_result!.winnerId != null) {
+        category = 'winner';
+      } else if (_result!.eliminatedPlayerIds.isNotEmpty) {
+        category = 'elimination';
+      } else if (_result!.wasAutomatic) {
+        category = 'automatic_show';
+      } else if (!_result!.wasSuccessful) {
+        category = 'failed_show';
+      } else if (_result!.pointsAdded.values.any((value) => value >= 25)) {
+        category = 'high_points';
+      } else {
+        category = 'smart_move';
+      }
+    } else if (actionType == 'show') {
+      category = 'smart_move';
+    } else if (source == DrawSource.previousPlayerDiscard) {
+      category = 'previous_pickup';
+    } else if (discardedCount >= 3) {
+      category = 'triple_quad';
+    } else if (discardedCount == 2) {
+      category = 'pair_discard';
+    } else {
+      category = 'smart_move';
+    }
+    _commentaryText = _commentary.next(category, name);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(_commentaryText!),
+      duration: const Duration(milliseconds: 4600),
+      behavior: SnackBarBehavior.floating,
+    ));
   }
 
   void _playRoundSounds() {
@@ -99,6 +140,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
       unawaited(ScottAudio.instance.play('show'));
       final turn = widget.engine.show(_state, widget.hostId);
       setState(() { _state = turn.state; _result = turn.roundResult; _selected.clear(); });
+      _announce(widget.hostId, actionType: 'show');
       _recordRound();
       unawaited(_publish());
     } catch (e) { _message(e.toString()); }
@@ -110,6 +152,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
       unawaited(ScottAudio.instance.play(source == DrawSource.drawPile ? 'card_draw' : 'previous_pickup'));
       final turn = widget.engine.discardAndDraw(state: _state, playerId: widget.hostId, cardsToDiscard: _selected.toList(), drawSource: source);
       setState(() { _state = turn.state; _result = turn.roundResult; _selected.clear(); });
+      _announce(widget.hostId, actionType: 'discard', discardedCount: _result == null ? _selected.length : 0, source: source);
       _recordRound();
       unawaited(_publish());
     } catch (e) { _message(e.toString()); }
@@ -262,13 +305,21 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
   final Set<PlayingCard> _selected = {};
   StreamSubscription<Map<String, dynamic>>? _sub;
   String? _message;
+  String? _lastCommentary;
 
   @override
   void initState() {
     super.initState();
     _apply(widget.initialMessage);
     _sub = widget.messages.listen((message) {
-      if (message['type'] == 'game') setState(() => _apply(message));
+      if (message['type'] == 'game') {
+        final incoming = message['state'] is Map ? (message['state'] as Map)['commentary'] as String? : null;
+        if (incoming != null && incoming != _lastCommentary) {
+          _lastCommentary = incoming;
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(incoming), duration: const Duration(milliseconds: 4600), behavior: SnackBarBehavior.floating));
+        }
+        setState(() => _apply(message));
+      }
       if (message['type'] == 'actionError') setState(() => _message = message['message'] as String?);
     });
   }

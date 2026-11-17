@@ -416,7 +416,6 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
   final Set<PlayingCard> _selected = {};
   StreamSubscription<Map<String, dynamic>>? _sub;
   String? _message;
-  String? _lastCommentary;
   String? _lastSnapshotFingerprint;
 
   @override
@@ -426,11 +425,8 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
     _sub = widget.messages.listen((message) {
       if (!mounted) return;
       if (message['type'] == 'game') {
-        final incoming = message['state'] is Map ? (message['state'] as Map)['commentary'] as String? : null;
-        if (incoming != null && incoming != _lastCommentary) {
-          _lastCommentary = incoming;
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(incoming), duration: const Duration(milliseconds: 4600), behavior: SnackBarBehavior.floating));
-        }
+        // Shared outcome commentary is rendered in the large in-game banner,
+        // not as a repetitive SnackBar on every polling update.
         setState(() => _apply(message));
       }
       if (message['type'] == 'actionError') setState(() => _message = message['message'] as String?);

@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 import '../game/game_models.dart';
@@ -75,17 +76,27 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   void _handleRemoteAction(String playerId, Map<String, dynamic> action) {
     if (!mounted || _state.phase != GamePhase.waitingForTurn || _state.currentPlayer.id != playerId) return;
     try {
-      if (action['type'] == 'show') {
+      final type = action['type'];
+      if (type == 'show') {
         final turn = widget.engine.show(_state, playerId);
         _state = turn.state;
         _result = turn.roundResult;
-      } else if (action['type'] == 'discard') {
-        final raw = action['cards'] as List? ?? const [];
+      } else if (type == 'discard') {
+        final raw = action['cards'];
+        if (raw is! List || raw.isEmpty) {
+          throw StateError('Discard action must contain at least one card.');
+        }
         final cards = raw.map((v) => GameStateCodec.cardFromJson(Map<String, dynamic>.from(v as Map))).toList();
-        final source = action['source'] == 'previousPlayerDiscard' ? DrawSource.previousPlayerDiscard : DrawSource.drawPile;
+        final sourceValue = action['source'];
+        if (sourceValue != 'drawPile' && sourceValue != 'previousPlayerDiscard') {
+          throw StateError('Unknown draw source.');
+        }
+        final source = sourceValue == 'previousPlayerDiscard' ? DrawSource.previousPlayerDiscard : DrawSource.drawPile;
         final turn = widget.engine.discardAndDraw(state: _state, playerId: playerId, cardsToDiscard: cards, drawSource: source);
         _state = turn.state;
         _result = turn.roundResult;
+      } else {
+        throw StateError('Unknown action type.');
       }
       _selected.clear();
       if (action['type'] == 'discard') {
@@ -398,6 +409,7 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
   StreamSubscription<Map<String, dynamic>>? _sub;
   String? _message;
   String? _lastCommentary;
+  String? _lastSnapshotFingerprint;
 
   @override
   void initState() {
@@ -418,9 +430,19 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
   }
 
   void _apply(Map<String, dynamic> message) {
-    _public = Map<String, dynamic>.from(message['state'] as Map);
-    _hand = (message['privateHand'] as List? ?? const []).map((v) => GameStateCodec.cardFromJson(Map<String, dynamic>.from(v as Map))).toList();
-    _selected.clear();
+    final nextPublic = Map<String, dynamic>.from(message['state'] as Map);
+    final nextHand = (message['privateHand'] as List? ?? const [])
+        .map((v) => GameStateCodec.cardFromJson(Map<String, dynamic>.from(v as Map)))
+        .toList();
+    // Online and local clients poll periodically. Keep selection while the
+    // authoritative snapshot is unchanged; otherwise every poll cancels it.
+    final fingerprint = jsonEncode([nextPublic, nextHand.map(GameStateCodec.cardToJson).toList()]);
+    if (_lastSnapshotFingerprint != fingerprint) {
+      _selected.clear();
+      _lastSnapshotFingerprint = fingerprint;
+    }
+    _public = nextPublic;
+    _hand = nextHand;
   }
 
   @override

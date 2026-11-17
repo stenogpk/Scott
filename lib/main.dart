@@ -6,6 +6,8 @@ import 'network/firebase_room_service.dart';
 import 'network/local_room_client.dart';
 import 'network/local_room_server.dart';
 import 'network/room_models.dart';
+import 'game/scott_game_engine.dart';
+import 'screens/game_table_page.dart';
 
 const firebaseApiKey = String.fromEnvironment('FIREBASE_API_KEY');
 const firebaseDatabaseUrl = String.fromEnvironment('FIREBASE_DATABASE_URL');
@@ -196,6 +198,8 @@ class LocalWifiPage extends StatefulWidget {
 class _LocalWifiPageState extends State<LocalWifiPage> {
   final _server = LocalRoomServer();
   final _client = LocalRoomClient();
+  final _actions = StreamController<({String playerId, Map<String, dynamic> action})>.broadcast();
+  bool _gameOpened = false;
   final _ip = TextEditingController();
   final _code = TextEditingController();
   String? _hostIp;
@@ -209,6 +213,7 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
     unawaited(_sub?.cancel());
     unawaited(_server.close());
     unawaited(_client.dispose());
+    unawaited(_actions.close());
     _ip.dispose();
     _code.dispose();
     super.dispose();
@@ -229,9 +234,23 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
     try {
       final ip = await _findIp();
       if (ip == null) throw StateError('Wi-Fi IP नहीं मिला। दोनों फोन को एक ही Wi-Fi या Hotspot से जोड़ें।');
-      final code = await _server.start(hostName: widget.playerName, onRoomChanged: (room) { if (mounted) setState(() => _room = room); });
+      final code = await _server.start(hostName: widget.playerName, onRoomChanged: (room) { if (mounted) setState(() => _room = room); }, onAction: (playerId, action) => _actions.add((playerId: playerId, action: action)));
       if (mounted) setState(() { _hostIp = ip; _room = RoomSnapshot(code: code, hostId: _server.players.first.id, players: _server.players); _busy = false; });
     } catch (e) { if (mounted) setState(() { _error = e.toString(); _busy = false; }); }
+  }
+
+  void _startLocalGame() {
+    if (_server.players.length < 2) return;
+    final engine = ScottGameEngine();
+    final participants = _server.players.map((p) => (id: p.id, name: p.name)).toList();
+    final state = engine.startGame(participants: participants, targetScore: 150);
+    Navigator.push(context, MaterialPageRoute(builder: (_) => HostGameTablePage(
+      engine: engine,
+      initialState: state,
+      server: _server,
+      hostId: _server.players.first.id,
+      actions: _actions.stream,
+    )));
   }
 
   Future<void> _join() async {
@@ -243,6 +262,10 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
         if (message['type'] == 'room') setState(() => _room = RoomSnapshot.fromJson(Map<String, dynamic>.from(message['room'] as Map)));
         if (message['type'] == 'welcome') setState(() => _room = RoomSnapshot.fromJson(Map<String, dynamic>.from(message['room'] as Map)));
         if (message['type'] == 'error') setState(() => _error = message['message'] as String?);
+        if (message['type'] == 'game' && !_gameOpened) {
+          _gameOpened = true;
+          Navigator.push(context, MaterialPageRoute(builder: (_) => RemoteGameTablePage(client: _client, initialMessage: message)));
+        }
       });
       if (mounted) setState(() => _busy = false);
     } catch (e) { if (mounted) setState(() { _error = e.toString(); _busy = false; }); }
@@ -276,7 +299,15 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
         const SizedBox(height: 14),
         _PlayerList(players: _room!.players),
         const SizedBox(height: 12),
-        const Text('दूसरे फोन में Host IP डालकर Join करें। सभी फोन एक ही Wi-Fi / Hotspot पर होने चाहिए।'),
+        const Text('दूसरे फोन में Host IP और Room Code डालकर Join करें। सभी फोन एक ही Wi-Fi / Hotspot पर होने चाहिए।'),
+        if (_hostIp != null) ...[
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: _room!.players.length < 2 ? null : _startLocalGame,
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: const Text('Start Game'),
+          ),
+        ],
       ],
       if (_busy) const Padding(padding: EdgeInsets.all(18), child: Center(child: CircularProgressIndicator())),
       if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: Colors.red))),

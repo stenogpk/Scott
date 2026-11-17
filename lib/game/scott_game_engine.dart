@@ -151,11 +151,21 @@ class ScottGameEngine {
         roundResult: round,
       );
     }
-    return TurnResult(
-      state: nextState.copyWith(
-        currentPlayerIndex: _nextActivePlayerIndex(nextState, state.currentPlayerIndex),
-      ),
+    final advanced = nextState.copyWith(
+      currentPlayerIndex: _nextActivePlayerIndex(nextState, state.currentPlayerIndex),
     );
+    if (advanced.currentPlayer.handTotal == 0) {
+      final result = resolveShow(advanced, advanced.currentPlayer.id, wasAutomatic: true);
+      return TurnResult(
+        state: advanced.copyWith(
+          players: result.updatedPlayers,
+          phase: result.winnerId == null ? GamePhase.roundComplete : GamePhase.gameComplete,
+          winnerId: result.winnerId,
+        ),
+        roundResult: result,
+      );
+    }
+    return TurnResult(state: advanced);
   }
 
   TurnResult show(GameState state, String callerId) {

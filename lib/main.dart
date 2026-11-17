@@ -306,9 +306,23 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
 
   Future<String?> _findIp() async {
     final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4, includeLoopback: false);
-    for (final interface in interfaces) {
+    // Prefer Android Wi-Fi / hotspot interfaces over mobile-data interfaces.
+    final ordered = [...interfaces]..sort((a, b) {
+      int priority(String name) {
+        final value = name.toLowerCase();
+        if (value.contains('wlan') || value.contains('wifi') || value.contains('ap')) return 0;
+        if (value.contains('eth')) return 1;
+        return 2;
+      }
+      return priority(a.name).compareTo(priority(b.name));
+    });
+    for (final interface in ordered) {
       for (final address in interface.addresses) {
-        if (address.address.startsWith('192.168.') || address.address.startsWith('10.') || address.address.startsWith('172.')) return address.address;
+        final ip = address.address;
+        if (ip.startsWith('192.168.') || ip.startsWith('10.') ||
+            (ip.startsWith('172.') && int.tryParse(ip.split('.').elementAtOrNull(1) ?? '') case final octet? when octet >= 16 && octet <= 31)) {
+          return ip;
+        }
       }
     }
     return null;

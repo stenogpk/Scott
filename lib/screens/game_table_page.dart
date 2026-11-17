@@ -81,7 +81,6 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
       }
       _selected.clear();
       _playRoundSounds();
-      _playRoundSounds();
       _announce(playerId, actionType: action['type'] as String? ?? 'discard', discardedCount: (action['cards'] as List? ?? const []).length, source: action['source'] == 'previousPlayerDiscard' ? DrawSource.previousPlayerDiscard : DrawSource.drawPile);
       _recordRound();
       unawaited(_publish());
@@ -137,9 +136,9 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
 
   void _show() {
     try {
-      unawaited(ScottAudio.instance.play('show'));
       final turn = widget.engine.show(_state, widget.hostId);
       setState(() { _state = turn.state; _result = turn.roundResult; _selected.clear(); });
+      _playRoundSounds();
       _announce(widget.hostId, actionType: 'show');
       _recordRound();
       unawaited(_publish());
@@ -147,12 +146,14 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   }
 
   void _discard(DrawSource source) {
+    final discardedCount = _selected.length;
     try {
       unawaited(ScottAudio.instance.play('card_discard'));
       unawaited(ScottAudio.instance.play(source == DrawSource.drawPile ? 'card_draw' : 'previous_pickup'));
       final turn = widget.engine.discardAndDraw(state: _state, playerId: widget.hostId, cardsToDiscard: _selected.toList(), drawSource: source);
       setState(() { _state = turn.state; _result = turn.roundResult; _selected.clear(); });
-      _announce(widget.hostId, actionType: 'discard', discardedCount: _result == null ? _selected.length : 0, source: source);
+      _playRoundSounds();
+      _announce(widget.hostId, actionType: 'discard', discardedCount: discardedCount, source: source);
       _recordRound();
       unawaited(_publish());
     } catch (e) { _message(e.toString()); }

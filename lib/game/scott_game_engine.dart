@@ -40,6 +40,43 @@ class ScottGameEngine {
     );
   }
 
+  GameState startNextRound(GameState previousState, {String? starterId}) {
+    if (previousState.phase != GamePhase.roundComplete) {
+      throw StateError('The previous round has not completed.');
+    }
+    final active = previousState.players.where((player) => !player.isEliminated).toList();
+    if (active.length <= 1) {
+      final winner = active.isEmpty ? null : active.single.id;
+      return previousState.copyWith(phase: GamePhase.gameComplete, winnerId: winner);
+    }
+    final deck = _newDeck()..shuffle(_random);
+    final dealt = <PlayerState>[];
+    for (final player in previousState.players) {
+      if (player.isEliminated) {
+        dealt.add(player.copyWith(hand: const []));
+      } else {
+        dealt.add(player.copyWith(hand: const []));
+      }
+    }
+    for (var cardIndex = 0; cardIndex < 5; cardIndex++) {
+      for (var i = 0; i < dealt.length; i++) {
+        if (dealt[i].isEliminated) continue;
+        dealt[i] = dealt[i].copyWith(hand: [...dealt[i].hand, deck.removeLast()]);
+      }
+    }
+    var firstIndex = dealt.indexWhere((player) => !player.isEliminated && player.id == starterId);
+    if (firstIndex < 0) firstIndex = dealt.indexWhere((player) => !player.isEliminated);
+    return GameState(
+      players: dealt,
+      drawPile: deck,
+      discardPile: const [],
+      currentPlayerIndex: firstIndex,
+      targetScore: previousState.targetScore,
+      phase: GamePhase.waitingForTurn,
+      roundNumber: previousState.roundNumber + 1,
+    );
+  }
+
   List<PlayingCard> _newDeck() => [
     for (final suit in CardSuit.values)
       for (final rank in CardRank.values)

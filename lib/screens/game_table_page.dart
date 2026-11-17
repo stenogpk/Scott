@@ -232,8 +232,9 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
             Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
             Text('स्कोर: ${p.score}', style: const TextStyle(fontSize: 12)),
             if (p.isEliminated) const Text('ससम्मान बाहेर 😂', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.w800))
-            else Row(children: List.generate(p.hand.length, (_) => const Padding(padding: EdgeInsets.only(right: 2), child: _CardBack()))),
-            if (_state.phase != GamePhase.waitingForTurn) Text('हाथ: ${p.handTotal}', style: const TextStyle(fontWeight: FontWeight.w700)),
+            if (_state.phase == GamePhase.waitingForTurn) Row(children: List.generate(p.hand.length, (_) => const Padding(padding: EdgeInsets.only(right: 2), child: _CardBack())))
+            else Wrap(spacing: 3, children: p.hand.map((card) => Text(card.toString(), style: TextStyle(fontSize: 11, color: card.suit.isRed ? Colors.red : Colors.black87))).toList()),
+            if (_state.phase != GamePhase.waitingForTurn) Text('हाथ का जोड़: ${p.handTotal}', style: const TextStyle(fontWeight: FontWeight.w700)),
           ]),
         ),
     ],
@@ -367,7 +368,12 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
             dense: true,
             title: Text('${p['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
             subtitle: Text(p['isEliminated'] == true ? 'ससम्मान बाहेर 😂' : 'स्कोर: ${p['score']}'),
-            trailing: reveal ? Text('हाथ: ${p['handTotal']}') : const Text('🂠 🂠 🂠 🂠 🂠'),
+            trailing: reveal
+                ? Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text('जोड़: ${p['handTotal']}'),
+                    Text(((p['hand'] as List? ?? const []).map((card) => '${card['rank']}/${card['suit']}')).join(' • '), style: const TextStyle(fontSize: 9)),
+                  ])
+                : const Text('🂠 🂠 🂠 🂠 🂠'),
           ),
         const SizedBox(height: 12),
         Text(myTurn ? 'आपकी बारी है' : 'अभी ${players.firstWhere((p) => p['id'] == currentId)['name']} की बारी है', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),

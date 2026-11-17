@@ -1,4 +1,5 @@
 // ignore_for_file: deprecated_member_use
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'network/firebase_room_service.dart';
@@ -127,7 +128,6 @@ class OnlineRoomPage extends StatefulWidget {
 
 class _OnlineRoomPageState extends State<OnlineRoomPage> {
   late final FirebaseRoomService _service;
-  final _code = TextEditingController();
   RoomSnapshot? _room;
   bool _busy = false;
   String? _error;
@@ -136,7 +136,7 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
   @override
   void initState() { super.initState(); _service = FirebaseRoomService(apiKey: firebaseApiKey, databaseUrl: firebaseDatabaseUrl); }
   @override
-  void dispose() { _code.dispose(); _service.dispose(); super.dispose(); }
+  void dispose() { unawaited(_service.dispose()); super.dispose(); }
 
   Future<void> _run(Future<RoomSnapshot> Function() task) async {
     setState(() { _busy = true; _error = null; });
@@ -199,7 +199,6 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
   final _ip = TextEditingController();
   final _code = TextEditingController();
   String? _hostIp;
-  String? _roomCode;
   RoomSnapshot? _room;
   String? _error;
   bool _busy = false;
@@ -207,10 +206,10 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
 
   @override
   void dispose() {
-    _sub?.cancel();
-    _server.close();
-    _client.dispose();
-    _ip.dispose(); _code.dispose();
+    unawaited(_sub?.cancel());
+    unawaited(_server.close());
+    unawaited(_client.dispose());
+    _ip.dispose();
     super.dispose();
   }
 
@@ -230,7 +229,7 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
       final ip = await _findIp();
       if (ip == null) throw StateError('Wi-Fi IP नहीं मिला। दोनों फोन को एक ही Wi-Fi या Hotspot से जोड़ें।');
       final code = await _server.start(hostName: widget.playerName, onRoomChanged: (room) { if (mounted) setState(() => _room = room); });
-      if (mounted) setState(() { _hostIp = ip; _roomCode = code; _room = RoomSnapshot(code: code, hostId: _server.players.first.id, players: _server.players); _busy = false; });
+      if (mounted) setState(() { _hostIp = ip; _room = RoomSnapshot(code: code, hostId: _server.players.first.id, players: _server.players); _busy = false; });
     } catch (e) { if (mounted) setState(() { _error = e.toString(); _busy = false; }); }
   }
 

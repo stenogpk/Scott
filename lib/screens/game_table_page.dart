@@ -4,6 +4,7 @@ import '../game/game_models.dart';
 import '../game/playing_card.dart';
 import '../game/scott_game_engine.dart';
 import '../network/game_state_codec.dart';
+import '../services/scott_audio.dart';
 typedef RoomAction = ({String playerId, Map<String, dynamic> action});
 
 class HostGameTablePage extends StatefulWidget {
@@ -75,6 +76,8 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
         _result = turn.roundResult;
       }
       _selected.clear();
+      _playRoundSounds();
+      _playRoundSounds();
       _recordRound();
       unawaited(_publish());
       setState(() {});
@@ -83,8 +86,17 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     }
   }
 
+  void _playRoundSounds() {
+    final result = _result;
+    if (result == null) return;
+    unawaited(ScottAudio.instance.play(result.wasSuccessful ? 'show' : 'failed_show'));
+    if (result.eliminatedPlayerIds.isNotEmpty) unawaited(ScottAudio.instance.play('elimination'));
+    if (result.winnerId != null) unawaited(ScottAudio.instance.play('winner'));
+  }
+
   void _show() {
     try {
+      unawaited(ScottAudio.instance.play('show'));
       final turn = widget.engine.show(_state, widget.hostId);
       setState(() { _state = turn.state; _result = turn.roundResult; _selected.clear(); });
       _recordRound();
@@ -94,6 +106,8 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
 
   void _discard(DrawSource source) {
     try {
+      unawaited(ScottAudio.instance.play('card_discard'));
+      unawaited(ScottAudio.instance.play(source == DrawSource.drawPile ? 'card_draw' : 'previous_pickup'));
       final turn = widget.engine.discardAndDraw(state: _state, playerId: widget.hostId, cardsToDiscard: _selected.toList(), drawSource: source);
       setState(() { _state = turn.state; _result = turn.roundResult; _selected.clear(); });
       _recordRound();
@@ -103,6 +117,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
 
   void _nextRound() {
     final caller = _result?.callerId;
+    unawaited(ScottAudio.instance.play('shuffle'));
     final next = widget.engine.startNextRound(_state, starterId: caller);
     setState(() { _state = next; _result = null; _selected.clear(); });
     unawaited(_publish());

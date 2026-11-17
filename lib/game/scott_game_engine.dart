@@ -101,12 +101,31 @@ class ScottGameEngine {
 
     if (nextState.currentPlayer.handTotal == 0) {
       final round = resolveShow(nextState, playerId, wasAutomatic: true);
-      return TurnResult(state: nextState.copyWith(phase: GamePhase.roundComplete), roundResult: round);
+      return TurnResult(
+        state: nextState.copyWith(
+          players: round.updatedPlayers,
+          phase: round.winnerId == null ? GamePhase.roundComplete : GamePhase.gameComplete,
+          winnerId: round.winnerId,
+        ),
+        roundResult: round,
+      );
     }
     return TurnResult(
       state: nextState.copyWith(
         currentPlayerIndex: _nextActivePlayerIndex(nextState, state.currentPlayerIndex),
       ),
+    );
+  }
+
+  TurnResult show(GameState state, String callerId) {
+    final round = resolveShow(state, callerId);
+    return TurnResult(
+      state: state.copyWith(
+        players: round.updatedPlayers,
+        phase: round.winnerId == null ? GamePhase.roundComplete : GamePhase.gameComplete,
+        winnerId: round.winnerId,
+      ),
+      roundResult: round,
     );
   }
 

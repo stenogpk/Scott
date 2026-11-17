@@ -210,6 +210,7 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
     unawaited(_server.close());
     unawaited(_client.dispose());
     _ip.dispose();
+    _code.dispose();
     super.dispose();
   }
 
@@ -236,7 +237,7 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
   Future<void> _join() async {
     setState(() { _busy = true; _error = null; });
     try {
-      await _client.connect(hostAddress: _ip.text.trim(), playerName: widget.playerName);
+      await _client.connect(hostAddress: _ip.text.trim(), roomCode: _code.text.trim(), playerName: widget.playerName);
       _sub = _client.messages.listen((message) {
         if (!mounted) return;
         if (message['type'] == 'room') setState(() => _room = RoomSnapshot.fromJson(Map<String, dynamic>.from(message['room'] as Map)));
@@ -264,6 +265,8 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
           const Text('Room में Join करें', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
           const SizedBox(height: 8),
           TextField(controller: _ip, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Host का Wi-Fi IP (जैसे 192.168.1.5)')),
+          const SizedBox(height: 10),
+          TextField(controller: _code, textCapitalization: TextCapitalization.characters, maxLength: 6, decoration: const InputDecoration(labelText: 'Room Code')),
           const SizedBox(height: 10),
           FilledButton.icon(onPressed: _busy ? null : _join, icon: const Icon(Icons.login), label: const Text('Join Local Room')),
         ]))),

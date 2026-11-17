@@ -51,6 +51,12 @@ class _ProfileGateState extends State<ProfileGate> {
     final prefs = await SharedPreferences.getInstance();
     return {'name': prefs.getString('scott_profile_name'), 'gender': prefs.getString('scott_profile_gender')};
   }
+  Future<void> _delete() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('scott_profile_name');
+    await prefs.remove('scott_profile_gender');
+    if (mounted) setState(() => _profile = _load());
+  }
   Future<void> _save(String name, String gender) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('scott_profile_name', name.trim());
@@ -65,16 +71,17 @@ class _ProfileGateState extends State<ProfileGate> {
       final name = snapshot.data!['name'];
       final gender = snapshot.data!['gender'];
       if (name == null || name.trim().isEmpty || gender == null) {
-        return ProfileEditorPage(onSaved: _save, firstRun: true);
+        return ProfileEditorPage(onSaved: _save, onDeleted: _delete, firstRun: true);
       }
-      return ScottHomePage(profileName: name, profileGender: gender, onProfileChanged: _save);
+      return ScottHomePage(profileName: name, profileGender: gender, onProfileChanged: _save, onProfileDeleted: _delete);
     },
   );
 }
 
 class ProfileEditorPage extends StatefulWidget {
-  const ProfileEditorPage({super.key, required this.onSaved, this.firstRun = false, this.initialName = '', this.initialGender = 'अन्य'});
+  const ProfileEditorPage({super.key, required this.onSaved, this.onDeleted, this.firstRun = false, this.initialName = '', this.initialGender = 'अन्य'});
   final Future<void> Function(String name, String gender) onSaved;
+  final Future<void> Function() onDeleted;
   final bool firstRun;
   final String initialName;
   final String initialGender;
@@ -108,15 +115,23 @@ class _ProfileEditorPageState extends State<ProfileEditorPage> {
       DropdownButtonFormField<String>(value: _gender, decoration: const InputDecoration(labelText: 'Gender'), items: const [DropdownMenuItem(value: 'पुरुष', child: Text('पुरुष')), DropdownMenuItem(value: 'महिला', child: Text('महिला')), DropdownMenuItem(value: 'अन्य', child: Text('अन्य / बताना नहीं चाहते'))], onChanged: (v) { if (v != null) setState(() => _gender = v); }),
       const SizedBox(height: 22),
       FilledButton.icon(onPressed: _saving ? null : _save, icon: const Icon(Icons.check_circle_outline), label: Text(_saving ? 'सेव हो रहा है…' : 'प्रोफाइल सेव करें')),
+      if (!widget.firstRun) ...[
+        const SizedBox(height: 18),
+        OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: Colors.red), onPressed: _saving ? null : () async {
+          final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('प्रोफाइल डिलीट करें?'), content: const Text('आपका सेव किया हुआ नाम और Gender इस फोन से हट जाएगा। अगली बार ऐप खोलने पर नया प्रोफाइल बनाना होगा।'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('रद्द करें')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('हाँ, डिलीट करें'))]));
+          if (confirmed == true) await widget.onDeleted();
+        }, icon: const Icon(Icons.delete_outline), label: const Text('प्रोफाइल डिलीट करें')),
+      ],
     ]))))),
   );
 }
 
 class ScottHomePage extends StatefulWidget {
-  const ScottHomePage({super.key, required this.profileName, required this.profileGender, required this.onProfileChanged});
+  const ScottHomePage({super.key, required this.profileName, required this.profileGender, required this.onProfileChanged, required this.onProfileDeleted});
   final String profileName;
   final String profileGender;
   final Future<void> Function(String name, String gender) onProfileChanged;
+  final Future<void> Function() onProfileDeleted;
   @override
   State<ScottHomePage> createState() => _ScottHomePageState();
 }
@@ -128,7 +143,7 @@ class _ScottHomePageState extends State<ScottHomePage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('SCOTT', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)), actions: [IconButton(tooltip: 'Edit Profile', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileEditorPage(onSaved: widget.onProfileChanged, initialName: widget.profileName, initialGender: widget.profileGender))), icon: const Icon(Icons.edit_outlined)), IconButton(tooltip: 'Settings', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottSettingsPage())), icon: const Icon(Icons.settings_outlined))]),
+    appBar: AppBar(title: const Text('SCOTT', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)), actions: [IconButton(tooltip: 'Edit Profile', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileEditorPage(onSaved: widget.onProfileChanged, onDeleted: widget.onProfileDeleted, initialName: widget.profileName, initialGender: widget.profileGender))), icon: const Icon(Icons.edit_outlined)), IconButton(tooltip: 'Settings', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottSettingsPage())), icon: const Icon(Icons.settings_outlined))]),
     body: SafeArea(child: Center(child: SingleChildScrollView(
       padding: const EdgeInsets.all(22),
       child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 520), child: Column(

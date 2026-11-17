@@ -80,6 +80,10 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
         _result = turn.roundResult;
       }
       _selected.clear();
+      if (action['type'] == 'discard') {
+        unawaited(ScottAudio.instance.play('card_discard'));
+        unawaited(ScottAudio.instance.play(action['source'] == 'previousPlayerDiscard' ? 'previous_pickup' : 'card_draw'));
+      }
       _playRoundSounds();
       _announce(playerId, actionType: action['type'] as String? ?? 'discard', discardedCount: (action['cards'] as List? ?? const []).length, source: action['source'] == 'previousPlayerDiscard' ? DrawSource.previousPlayerDiscard : DrawSource.drawPile);
       _recordRound();
@@ -379,12 +383,13 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
               else _message = 'एक ही रैंक के पत्ते साथ चुनें।';
             })),
         ]),
-        if (myTurn) ...[
+        final canTakePrevious = (_public['lastDiscardGroup'] as List? ?? const []).isNotEmpty;
+    if (myTurn) ...[
           OutlinedButton(onPressed: () => widget.sendAction({'type': 'show'}), child: const Text('SHOW')),
           FilledButton(onPressed: _selected.isEmpty ? null : () {
             widget.sendAction({'type': 'discard', 'cards': _selected.map(GameStateCodec.cardToJson).toList(), 'source': 'drawPile'});
           }, child: const Text('चुने पत्ते फेंकें + Draw Pile से लें')),
-          OutlinedButton(onPressed: _selected.isEmpty ? null : () {
+          OutlinedButton(onPressed: _selected.isEmpty || !canTakePrevious ? null : () {
             widget.sendAction({'type': 'discard', 'cards': _selected.map(GameStateCodec.cardToJson).toList(), 'source': 'previousPlayerDiscard'});
           }, child: const Text('चुने पत्ते फेंकें + पिछला पत्ता लें')),
         ],

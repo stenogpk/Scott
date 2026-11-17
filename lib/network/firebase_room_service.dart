@@ -14,6 +14,7 @@ class FirebaseRoomService {
   String? _userId;
 
   bool get isConfigured => apiKey.isNotEmpty && databaseUrl.startsWith('https://');
+  String? get userId => _userId;
 
   Future<void> signInAsGuest() async {
     if (!isConfigured) throw StateError('Online multiplayer setup is incomplete. Firebase API key and Realtime Database URL are required.');
@@ -29,10 +30,13 @@ class FirebaseRoomService {
     await _ensureSignedIn();
     final code = _newRoomCode();
     final hostId = _userId!;
-    final snapshot = RoomSnapshot(code: code, hostId: hostId, players: [RoomPlayer(id: hostId, name: playerName.trim(), isHost: true)], targetScore: targetScore);
-    final response = await _client.put(_roomUri(code), headers: {'Content-Type': 'application/json'}, body: jsonEncode(snapshot.toJson()));
-    if (response.statusCode < 200 || response.statusCode >= 300) throw StateError('Room create failed: ${response.body}');
-    return snapshot;
+    final player = RoomPlayer(id: hostId, name: playerName.trim(), isHost: true);
+    await _putPath('rooms/$code/hostId', jsonEncode(hostId));
+    await _putPath('rooms/$code/targetScore', jsonEncode(targetScore));
+    await _putPath('rooms/$code/started', 'false');
+    await _putPath('rooms/$code/updatedAt', jsonEncode(DateTime.now().millisecondsSinceEpoch));
+    await _putPath('rooms/$code/players/$hostId', jsonEncode(player.toJson()));
+    return RoomSnapshot(code: code, hostId: hostId, players: [player], targetScore: targetScore);
   }
 
   Future<RoomSnapshot> joinRoom({required String code, required String playerName}) async {
@@ -41,10 +45,10 @@ class FirebaseRoomService {
     if (room.started) throw StateError('यह गेम शुरू हो चुका है।');
     if (room.players.length >= 5) throw StateError('कमरा भर चुका है।');
     if (room.players.any((p) => p.id == _userId)) return room;
-    final players = [...room.players, RoomPlayer(id: _userId!, name: playerName.trim())];
-    final updated = RoomSnapshot(code: room.code, hostId: room.hostId, players: players, targetScore: room.targetScore, started: room.started, gameState: room.gameState);
-    await _putRoom(updated);
-    return updated;
+    final player = RoomPlayer(id: _userId!, name: playerName.trim());
+    await _putPath('rooms/${room.code}/players/${player.id}', jsonEncode(player.toJson()));
+    await _putPath('rooms/${room.code}/updatedAt', jsonEncode(DateTime.now().millisecondsSinceEpoch));
+    return RoomSnapshot(code: room.code, hostId: room.hostId, players: [...room.players, player], targetScore: room.targetScore);
   }
 
   Future<RoomSnapshot> getRoom(String code) async {
@@ -53,15 +57,16 @@ class FirebaseRoomService {
     if (response.statusCode != 200) throw StateError('Room lookup failed: ${response.body}');
     final raw = jsonDecode(response.body);
     if (raw == null) throw StateError('यह Room Code नहीं मिला।');
-    return RoomSnapshot.fromJson(Map<String, dynamic>.from(raw as Map));
+    return RoomSnapshot.fromJson(Map<String, dynamic>.from(raw as Map)..['code'] = code.toUpperCase());
   }
 
   Future<void> publishGameState(String code, Map<String, dynamic> publicState) async {
     await _ensureSignedIn();
     final room = await getRoom(code);
     if (room.hostId != _userId) throw StateError('Only the room host can publish the game state.');
-    final updated = RoomSnapshot(code: room.code, hostId: room.hostId, players: room.players, targetScore: room.targetScore, started: true, gameState: publicState);
-    await _putRoom(updated);
+    await _putPath('rooms/${room.code}/gameState', jsonEncode(publicState));
+    await _putPath('rooms/${room.code}/started', 'true');
+    await _putPath('rooms/${room.code}/updatedAt', jsonEncode(DateTime.now().millisecondsSinceEpoch));
   }
 
   Stream<RoomSnapshot> watchRoom(String code, {Duration interval = const Duration(seconds: 2)}) async* {
@@ -70,9 +75,10 @@ class FirebaseRoomService {
     yield* Stream.periodic(interval).asyncMap((_) => getRoom(code));
   }
 
-  Future<void> _putRoom(RoomSnapshot snapshot) async {
-    final response = await _client.put(_roomUri(snapshot.code), headers: {'Content-Type': 'application/json'}, body: jsonEncode(snapshot.toJson()));
-    if (response.statusCode < 200 || response.statusCode >= 300) throw StateError('Room update failed: ${response.body}');
+  Future<void> _putPath(String path, String body) async {
+    final uri = Uri.parse('${databaseUrl.replaceFirst(RegExp(r'/+$'), '')}/$path.json?auth=$_idToken');
+    final response = await _client.put(uri, headers: {'Content-Type': 'application/json'}, body: body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw StateError('Firebase write failed: ${response.body}');
   }
 
   Uri _roomUri(String code) => Uri.parse('${databaseUrl.replaceFirst(RegExp(r'/+$'), '')}/rooms/${code.toUpperCase()}.json?auth=$_idToken');

@@ -10,6 +10,7 @@ class GameStateCodec {
           'name': player.name,
           'score': player.score,
           'isEliminated': player.isEliminated,
+          'handCount': player.hand.length,
           if (revealHands) 'handTotal': player.handTotal,
           if (revealHands) 'hand': player.hand.map(cardToJson).toList(),
         },

@@ -79,7 +79,7 @@ class _ProfileGateState extends State<ProfileGate> {
 }
 
 class ProfileEditorPage extends StatefulWidget {
-  const ProfileEditorPage({super.key, required this.onSaved, this.onDeleted, this.firstRun = false, this.initialName = '', this.initialGender = 'अन्य'});
+  const ProfileEditorPage({super.key, required this.onSaved, required this.onDeleted, this.firstRun = false, this.initialName = '', this.initialGender = 'अन्य'});
   final Future<void> Function(String name, String gender) onSaved;
   final Future<void> Function() onDeleted;
   final bool firstRun;

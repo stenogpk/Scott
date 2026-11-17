@@ -119,7 +119,7 @@ class _ProfileEditorPageState extends State<ProfileEditorPage> {
         const SizedBox(height: 18),
         OutlinedButton.icon(style: OutlinedButton.styleFrom(foregroundColor: Colors.red), onPressed: _saving ? null : () async {
           final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('प्रोफाइल डिलीट करें?'), content: const Text('आपका सेव किया हुआ नाम और Gender इस फोन से हट जाएगा। अगली बार ऐप खोलने पर नया प्रोफाइल बनाना होगा।'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('रद्द करें')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('हाँ, डिलीट करें'))]));
-          if (confirmed == true) await widget.onDeleted();
+          if (confirmed == true) { await widget.onDeleted(); if (mounted && !widget.firstRun) Navigator.pop(context); }
         }, icon: const Icon(Icons.delete_outline), label: const Text('प्रोफाइल डिलीट करें')),
       ],
     ]))))),
@@ -167,7 +167,7 @@ class _ScottHomePageState extends State<ScottHomePage> {
             ]),
           ),
           const SizedBox(height: 22),
-          Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)), child: Row(children: [const CircleAvatar(child: Icon(Icons.person)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(widget.profileName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)), Text(widget.profileGender, style: const TextStyle(color: Colors.blueGrey))])), IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileEditorPage(onSaved: widget.onProfileChanged, initialName: widget.profileName, initialGender: widget.profileGender))), icon: const Icon(Icons.edit_outlined))])),
+          Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)), child: Row(children: [const CircleAvatar(child: Icon(Icons.person)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(widget.profileName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)), Text(widget.profileGender, style: const TextStyle(color: Colors.blueGrey))])), IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileEditorPage(onSaved: widget.onProfileChanged, onDeleted: widget.onProfileDeleted, initialName: widget.profileName, initialGender: widget.profileGender))), icon: const Icon(Icons.edit_outlined))])),
           const SizedBox(height: 12),
           _HomeModeCard(icon: Icons.public, title: 'Online Multiplayer', subtitle: 'दूर बैठे दोस्तों के साथ Room Code से खेलें', onTap: () => _open(context, OnlineRoomPage(playerName: _playerName))),
           const SizedBox(height: 12),

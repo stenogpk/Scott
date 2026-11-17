@@ -155,7 +155,23 @@ class LocalRoomServer {
   void _removeClient(WebSocket socket, void Function(RoomSnapshot)? onRoomChanged) {
     _clients.remove(socket);
     final id = _playerByClient.remove(socket);
-    if (id != null) _clientByPlayer.remove(id);
+    if (id != null) {
+      _clientByPlayer.remove(id);
+      if (_gameState == null) {
+        _players.remove(id);
+      } else {
+        final old = _players[id];
+        if (old != null) {
+          _players[id] = RoomPlayer(
+            id: old.id,
+            name: old.name,
+            isHost: old.isHost,
+            isConnected: false,
+            isReady: old.isReady,
+          );
+        }
+      }
+    }
     if (_roomCode != null) {
       _broadcast({'type': 'room', 'room': _snapshot().toJson()});
       onRoomChanged?.call(_snapshot());

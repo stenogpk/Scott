@@ -8,6 +8,7 @@ import 'network/local_room_server.dart';
 import 'network/room_models.dart';
 import 'game/scott_game_engine.dart';
 import 'screens/game_table_page.dart';
+import 'network/game_state_codec.dart';
 
 const firebaseApiKey = String.fromEnvironment('FIREBASE_API_KEY');
 const firebaseDatabaseUrl = String.fromEnvironment('FIREBASE_DATABASE_URL');
@@ -133,17 +134,63 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
   RoomSnapshot? _room;
   bool _busy = false;
   String? _error;
+  StreamSubscription<Map<String, dynamic>>? _gameSub;
+  bool _gameOpened = false;
   int _target = 150;
 
   @override
   void initState() { super.initState(); _service = FirebaseRoomService(apiKey: firebaseApiKey, databaseUrl: firebaseDatabaseUrl); }
   @override
-  void dispose() { unawaited(_service.dispose()); super.dispose(); }
+  void dispose() { unawaited(_gameSub?.cancel()); unawaited(_service.dispose()); super.dispose(); }
 
   Future<void> _run(Future<RoomSnapshot> Function() task) async {
     setState(() { _busy = true; _error = null; });
-    try { final room = await task(); if (mounted) setState(() { _room = room; _busy = false; }); }
+    try { final room = await task(); if (mounted) { setState(() { _room = room; _busy = false; }); if (room.hostId != _service.userId) _watchOnlineGame(room.code); } }
     catch (e) { if (mounted) setState(() { _error = e.toString().replaceFirst('Bad state: ', ''); _busy = false; }); }
+  }
+
+  void _watchOnlineGame(String code) {
+    _gameSub?.cancel();
+    _gameSub = _service.watchGame(code).listen((message) {
+      if (!mounted || _gameOpened || message['type'] != 'game') return;
+      _gameOpened = true;
+      Navigator.push(context, MaterialPageRoute(builder: (_) => RemoteGameTablePage(
+        messages: _service.watchGame(code),
+        sendAction: (action) => unawaited(_service.sendAction(code, action)),
+        playerId: _service.userId!,
+        initialMessage: message,
+      )));
+    }, onError: (Object error) {
+      if (mounted) setState(() => _error = error.toString());
+    });
+  }
+
+  Future<void> _startOnlineGame() async {
+    final room = _room;
+    if (room == null || room.hostId != _service.userId || room.players.length < 2) return;
+    setState(() { _busy = true; _error = null; });
+    try {
+      final engine = ScottGameEngine();
+      final participants = room.players.map((p) => (id: p.id, name: p.name)).toList();
+      final state = engine.startGame(participants: participants, targetScore: room.targetScore);
+      await _service.publishGameState(room.code, GameStateCodec.publicState(state), GameStateCodec.privateHands(state));
+      final actions = _service.watchActions(room.code).asyncExpand((items) => Stream<RoomAction>.fromIterable(items.map((item) => (
+        playerId: item['playerId'] as String,
+        action: Map<String, dynamic>.from(item['action'] as Map),
+      ))));
+      if (!mounted) return;
+      setState(() => _busy = false);
+      Navigator.push(context, MaterialPageRoute(builder: (_) => HostGameTablePage(
+        engine: engine,
+        initialState: state,
+        hostId: _service.userId!,
+        actions: actions,
+        publish: (publicState, privateHands) => _service.publishGameState(room.code, publicState, privateHands),
+        sendToPlayer: (_, __) {},
+      )));
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _busy = false; });
+    }
   }
 
   @override
@@ -167,6 +214,10 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
         _RoomHeader(room: _room!),
         const SizedBox(height: 16),
         _PlayerList(players: _room!.players),
+        if (_room!.hostId == _service.userId) ...[
+          const SizedBox(height: 12),
+          FilledButton.icon(onPressed: _busy || _room!.players.length < 2 ? null : _startOnlineGame, icon: const Icon(Icons.play_arrow_rounded), label: const Text('Start Game')),
+        ],
         const SizedBox(height: 14),
         const Text('कमरे में 2 से 5 खिलाड़ी जुड़ सकते हैं।'),
         const SizedBox(height: 12),

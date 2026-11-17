@@ -209,8 +209,11 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
             for (final card in _state.playerById(widget.hostId)!.hand)
               _PlayingCardTile(card: card, selected: _selected.contains(card), enabled: isMyTurn && card.rank != CardRank.nine, onTap: () => setState(() {
                 if (_selected.contains(card)) { _selected.remove(card); } else {
-                  if (_selected.isEmpty || _selected.every((c) => c.rank == card.rank)) _selected.add(card);
-                  else _message('एक साथ केवल एक ही रैंक के पत्ते फेंक सकते हैं।');
+                  if (_selected.isEmpty || _selected.every((c) => c.rank == card.rank)) {
+                    _selected.add(card);
+                  } else {
+                    _message('एक साथ केवल एक ही रैंक के पत्ते फेंक सकते हैं।');
+                  }
                 }
               })),
           ]),
@@ -406,9 +409,13 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
         Wrap(spacing: 8, children: [
           for (final card in _hand)
             _PlayingCardTile(card: card, selected: _selected.contains(card), enabled: myTurn && card.rank != CardRank.nine, onTap: () => setState(() {
-              if (_selected.contains(card)) _selected.remove(card);
-              else if (_selected.isEmpty || _selected.every((c) => c.rank == card.rank)) _selected.add(card);
-              else _message = 'एक ही रैंक के पत्ते साथ चुनें।';
+              if (_selected.contains(card)) {
+                _selected.remove(card);
+              } else if (_selected.isEmpty || _selected.every((c) => c.rank == card.rank)) {
+                _selected.add(card);
+              } else {
+                _message = 'एक ही रैंक के पत्ते साथ चुनें।';
+              }
             })),
         ]),
         if (myTurn) ...[

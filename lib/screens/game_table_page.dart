@@ -200,10 +200,10 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     ])));
   }
 
-  Widget _scoreboard() => showModalBottomSheet<void>(context: context, builder: (_) => SafeArea(child: ListView(padding: const EdgeInsets.all(18), children: [
+  void _scoreboard() { showModalBottomSheet<void>(context: context, builder: (_) => SafeArea(child: ListView(padding: const EdgeInsets.all(18), children: [
     const Text('Scoreboard', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
     for (final p in _state.players) ListTile(title: Text(p.name), subtitle: p.isEliminated ? const Text('ससम्मान बाहेर 😂') : null, trailing: Text('${p.score} / ${_state.targetScore}', style: const TextStyle(fontWeight: FontWeight.w900))),
-  ])));
+  ]))); }
 }
 
 class RemoteGameTablePage extends StatefulWidget {
@@ -249,7 +249,8 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
     final reveal = _public['revealHands'] == true;
     final phase = _public['phase'];
     final winner = _public['winnerId'];
-    final myPlayer = players.cast<Map>().where((p) => p['id'] == me).firstOrNull;
+    final matches = players.cast<Map>().where((p) => p['id'] == me).toList();
+    final myPlayer = matches.isEmpty ? null : matches.first;
     return Scaffold(
       appBar: AppBar(title: Text(phase == GamePhase.gameComplete.name ? 'विजेता' : 'SCOTT • राउंड ${_public['roundNumber']}')),
       body: SafeArea(child: ListView(padding: const EdgeInsets.all(14), children: [

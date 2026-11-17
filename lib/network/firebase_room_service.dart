@@ -82,6 +82,12 @@ class FirebaseRoomService {
     }));
   }
 
+  Stream<RoomSnapshot> watchRoom(String code, {Duration interval = const Duration(seconds: 2)}) async* {
+    await _ensureSignedIn();
+    yield await getRoom(code);
+    yield* Stream.periodic(interval).asyncMap((_) => getRoom(code));
+  }
+
   Stream<List<Map<String, dynamic>>> watchActions(String code, {Duration interval = const Duration(milliseconds: 800)}) async* {
     await _ensureSignedIn();
     final room = await getRoom(code);

@@ -6,6 +6,7 @@ import 'room_models.dart';
 class LocalRoomServer {
   HttpServer? _server;
   final Set<WebSocket> _clients = {};
+  final Map<String, WebSocket> _clientByPlayer = {};
   final Map<String, RoomPlayer> _players = {};
   String? _hostId;
   String? _roomCode;
@@ -45,6 +46,7 @@ class LocalRoomServer {
               return;
             }
             _players[id] = RoomPlayer(id: id, name: name);
+            _clientByPlayer[id] = socket;
             socket.add(jsonEncode({'type': 'welcome', 'playerId': id, 'room': _snapshot().toJson()}));
             _broadcast({'type': 'room', 'room': _snapshot().toJson()});
             onRoomChanged?.call(_snapshot());
@@ -67,6 +69,7 @@ class LocalRoomServer {
         }
       }, onDone: () {
         _clients.remove(socket);
+        _clientByPlayer.removeWhere((id, client) => identical(client, socket));
         _broadcast({'type': 'room', 'room': _snapshot().toJson()});
         onRoomChanged?.call(_snapshot());
       }, onError: (_) => _clients.remove(socket));
@@ -74,9 +77,24 @@ class LocalRoomServer {
     return _roomCode!;
   }
 
-  void updateGameState(Map<String, dynamic> state) {
+  void updateGameState(Map<String, dynamic> state, {Map<String, List<Map<String, dynamic>>> privateHands = const {}}) {
     _gameState = state;
-    _broadcast({'type': 'game', 'state': state});
+    for (final entry in _clientByPlayer.entries) {
+      final socket = entry.value;
+      if (socket.readyState == WebSocket.open) {
+        socket.add(jsonEncode({
+          'type': 'game',
+          'state': state,
+          'privateHand': privateHands[entry.key] ?? const [],
+        }));
+      }
+    }
+    _broadcast({'type': 'gamePublic', 'state': state});
+  }
+
+  void sendToPlayer(String playerId, Map<String, dynamic> message) {
+    final socket = _clientByPlayer[playerId];
+    if (socket != null && socket.readyState == WebSocket.open) socket.add(jsonEncode(message));
   }
   void setTargetScore(int value) {
     if (value <= 0) throw ArgumentError.value(value);
@@ -93,6 +111,7 @@ class LocalRoomServer {
   Future<void> close() async {
     for (final socket in _clients.toList()) { await socket.close(); }
     _clients.clear();
+    _clientByPlayer.clear();
     await _server?.close(force: true);
     _server = null; _players.clear(); _roomCode = null; _hostId = null; _gameState = null;
   }

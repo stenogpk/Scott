@@ -135,7 +135,6 @@ class ScottGameEngine {
       players: updatedPlayers,
       drawPile: updatedDrawPile,
       discardPile: updatedDiscard,
-      lastDiscardPlayerId: player.id,
       lastDiscardGroup: reshuffled ? const [] : cardsToDiscard,
       lastDiscardPlayerId: reshuffled ? null : player.id,
     );

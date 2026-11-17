@@ -151,8 +151,7 @@ class FirebaseRoomService {
     }
     final refreshToken = _refreshToken;
     if (refreshToken == null || refreshToken.isEmpty) {
-      await signInAsGuest();
-      return;
+      throw StateError('Online session expired. Please rejoin the room.');
     }
     final uri = Uri.parse('https://securetoken.googleapis.com/v1/token?key=$apiKey');
     final response = await _client.post(
@@ -164,13 +163,7 @@ class FirebaseRoomService {
       },
     );
     if (response.statusCode != 200) {
-      // Fall back to a fresh anonymous identity if refresh is no longer valid.
-      _idToken = null;
-      _refreshToken = null;
-      _userId = null;
-      _tokenExpiresAt = null;
-      await signInAsGuest();
-      return;
+      throw StateError('Online session refresh failed. Please rejoin the room.');
     }
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     _idToken = (json['id_token'] ?? json['idToken']) as String;

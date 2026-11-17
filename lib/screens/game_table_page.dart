@@ -426,13 +426,56 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
   @override
   void dispose() { unawaited(_sub?.cancel()); super.dispose(); }
 
-  void _scoreboard() => showModalBottomSheet<void>(context: context, builder: (_) => SafeArea(child: ListView(padding: const EdgeInsets.all(18), children: [
-    const Text('Scoreboard', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
-    for (final p in (_public['players'] as List).cast<Map>()) ListTile(title: Text('${p['name']}'), trailing: Text('${p['score']} / ${_public['targetScore']}')),
-    const Divider(),
-    const Text('Round History', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
-    for (final entry in (_public['history'] as List? ?? const [])) ListTile(title: Text('Round ${entry['round']} • ${entry['successful'] == true ? 'Successful' : 'Failed'} SHOW'), subtitle: Text('Points: ${(entry['pointsAdded'] as Map).entries.map((e) => '${e.key}: +${e.value}').join(' | ')}')),
-  ])));
+  void _scoreboard() {
+    final players = (_public['players'] as List).cast<Map>();
+    final names = {for (final player in players) player['id'].toString(): player['name'].toString()};
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(18),
+          children: [
+            const Text('Scoreboard', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+            for (final player in players)
+              ListTile(
+                title: Text('${player['name']}'),
+                subtitle: player['isEliminated'] == true ? const Text('ससम्मान बाहेर 😂') : null,
+                trailing: Text('${player['score']} / ${_public['targetScore']}'),
+              ),
+            const Divider(),
+            const Text('Round History', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+            for (final entry in (_public['history'] as List? ?? const []))
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Round ${entry['round']} • ${entry['successful'] == true ? 'Successful' : 'Failed'} SHOW${entry['automatic'] == true ? ' • Automatic' : ''}',
+                        style: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      Text('Caller: ${names[entry['callerId']?.toString()] ?? '—'}'),
+                      Text('हाथ का जोड़: ${(entry['handTotals'] as Map).entries.map((e) => '${names[e.key.toString()] ?? e.key}: ${e.value}').join(' • ')}'),
+                      Text('अंक मिले: ${(entry['pointsAdded'] as Map).entries.map((e) => '${names[e.key.toString()] ?? e.key}: +${e.value}').join(' • ')}'),
+                      Text('कुल स्कोर: ${(entry['scores'] as Map).entries.map((e) => '${names[e.key.toString()] ?? e.key}: ${e.value}').join(' • ')}'),
+                      if ((entry['eliminatedPlayerIds'] as List? ?? const []).isNotEmpty)
+                        Text(
+                          'ससम्मान बाहेर 😂: ${(entry['eliminatedPlayerIds'] as List).map((id) => names[id.toString()] ?? id).join(', ')}',
+                          style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
+                        ),
+                      if (entry['winnerId'] != null)
+                        Text('विजेता: ${names[entry['winnerId'].toString()] ?? '—'}', style: const TextStyle(fontWeight: FontWeight.w900)),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:confetti/confetti.dart';
 import '../game/game_models.dart';
 import '../game/playing_card.dart';
 import '../game/scott_game_engine.dart';
@@ -28,6 +29,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   final Set<PlayingCard> _selected = {};
   final List<Map<String, dynamic>> _history = [];
   final ScottCommentary _commentary = ScottCommentary();
+  late final ConfettiController _confetti;
   String? _commentaryText;
   StreamSubscription<({String playerId, Map<String, dynamic> action})>? _actionsSub;
 
@@ -35,6 +37,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   void initState() {
     super.initState();
     _state = widget.initialState;
+    _confetti = ConfettiController(duration: const Duration(seconds: 4));
     unawaited(_publish());
     _actionsSub = widget.actions.listen((event) => _handleRemoteAction(event.playerId, event.action));
   }
@@ -42,6 +45,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   @override
   void dispose() {
     unawaited(_actionsSub?.cancel());
+    _confetti.dispose();
     super.dispose();
   }
 
@@ -137,7 +141,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     if (result == null) return;
     unawaited(ScottAudio.instance.play(result.wasSuccessful ? 'show' : 'failed_show'));
     if (result.eliminatedPlayerIds.isNotEmpty) unawaited(ScottAudio.instance.play('elimination'));
-    if (result.winnerId != null) unawaited(ScottAudio.instance.play('winner'));
+    if (result.winnerId != null) { unawaited(ScottAudio.instance.play('winner')); _confetti.play(); }
   }
 
   void _show() {
@@ -282,11 +286,13 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
 
   Widget _winnerPanel() {
     final winner = _state.playerById(_state.winnerId ?? '');
-    return Card(color: const Color(0xFFFFF0C9), child: Padding(padding: const EdgeInsets.all(22), child: Column(children: [
+    return Stack(alignment: Alignment.topCenter, children: [
+      ConfettiWidget(confettiController: _confetti, blastDirectionality: BlastDirectionality.explosive, shouldLoop: false, numberOfParticles: 35, maxBlastForce: 24, minBlastForce: 8),
+      Card(color: const Color(0xFFFFF0C9), child: Padding(padding: const EdgeInsets.all(22), child: Column(children: [
       const Icon(Icons.emoji_events, size: 64, color: Color(0xFFB57B11)),
       const Text('SCOTT CHAMPION', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
       Text(winner?.name ?? 'विजेता', style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-    ])));
+    ])))]);
   }
 
   void _scoreboard() { showModalBottomSheet<void>(context: context, builder: (_) => SafeArea(child: ListView(padding: const EdgeInsets.all(18), children: [

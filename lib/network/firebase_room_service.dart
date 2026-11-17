@@ -51,8 +51,10 @@ class FirebaseRoomService {
     if (room.players.length >= 5) throw StateError('कमरा भर चुका है।');
     if (room.players.any((p) => p.id == _userId)) return room;
     final player = RoomPlayer(id: _userId!, name: playerName.trim());
+    // A joining guest may add only their own player record. updatedAt is
+    // host-owned in the database rules, so writing it here caused every join
+    // to fail with PERMISSION_DENIED after the player record was created.
     await _putPath('rooms/${room.code}/public/players/${player.id}', jsonEncode(player.toJson()));
-    await _putPath('rooms/${room.code}/public/updatedAt', jsonEncode(DateTime.now().millisecondsSinceEpoch));
     return RoomSnapshot(code: room.code, hostId: room.hostId, players: [...room.players, player], targetScore: room.targetScore);
   }
 

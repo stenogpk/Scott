@@ -332,6 +332,7 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
     super.initState();
     _apply(widget.initialMessage);
     _sub = widget.messages.listen((message) {
+      if (!mounted) return;
       if (message['type'] == 'game') {
         final incoming = message['state'] is Map ? (message['state'] as Map)['commentary'] as String? : null;
         if (incoming != null && incoming != _lastCommentary) {
@@ -370,6 +371,7 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
     final reveal = _public['revealHands'] == true;
     final phase = _public['phase'];
     final winner = _public['winnerId'];
+    final canTakePrevious = (_public['lastDiscardGroup'] as List? ?? const []).isNotEmpty;
     final matches = players.cast<Map>().where((p) => p['id'] == me).toList();
     final myPlayer = matches.isEmpty ? null : matches.first;
     return Scaffold(
@@ -407,8 +409,7 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
               else _message = 'एक ही रैंक के पत्ते साथ चुनें।';
             })),
         ]),
-        final canTakePrevious = (_public['lastDiscardGroup'] as List? ?? const []).isNotEmpty;
-    if (myTurn) ...[
+        if (myTurn) ...[
           OutlinedButton(onPressed: () { unawaited(ScottAudio.instance.play('show')); widget.sendAction({'type': 'show'}); }, child: const Text('SHOW')),
           FilledButton(onPressed: _selected.isEmpty ? null : () {
             unawaited(ScottAudio.instance.play('card_discard'));
@@ -422,7 +423,8 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
           }, child: const Text('चुने पत्ते फेंकें + पिछला पत्ता लें')),
         ],
         if (_message != null) Text(_message!, style: const TextStyle(color: Colors.red)),
-        if (myPlayer == null) const Text('इस कमरे में आपका खिलाड़ी ID नहीं मिला।'),
+        if (myPlayer == null) const Text('इस कमरे में आपका खिलाड़ी ID नहीं मिला.'),
+        OutlinedButton.icon(onPressed: _scoreboard, icon: const Icon(Icons.leaderboard), label: const Text('Scoreboard और History')),
       ])),
     );
   }

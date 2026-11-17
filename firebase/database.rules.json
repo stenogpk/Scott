@@ -4,25 +4,30 @@
     ".write": false,
     "rooms": {
       "$roomCode": {
-        ".read": "auth != null",
-        "hostId": {
-          ".write": "!data.exists() && newData.val() === auth.uid"
+        "public": {
+          ".read": "auth != null",
+          "hostId": { ".write": "!data.exists() && newData.val() === auth.uid" },
+          "code": { ".write": "auth != null && root.child('rooms').child($roomCode).child('public').child('hostId').val() === auth.uid" },
+          "targetScore": { ".write": "auth != null && root.child('rooms').child($roomCode).child('public').child('hostId').val() === auth.uid" },
+          "started": { ".write": "auth != null && root.child('rooms').child($roomCode).child('public').child('hostId').val() === auth.uid" },
+          "gameState": { ".write": "auth != null && root.child('rooms').child($roomCode).child('public').child('hostId').val() === auth.uid" },
+          "updatedAt": { ".write": "auth != null && root.child('rooms').child($roomCode).child('public').child('hostId').val() === auth.uid" },
+          "players": {
+            "$playerId": {
+              ".write": "auth != null && (auth.uid === $playerId || auth.uid === root.child('rooms').child($roomCode).child('public').child('hostId').val())"
+            }
+          }
         },
-        "targetScore": {
-          ".write": "auth != null && root.child('rooms').child($roomCode).child('hostId').val() === auth.uid"
-        },
-        "started": {
-          ".write": "auth != null && root.child('rooms').child($roomCode).child('hostId').val() === auth.uid"
-        },
-        "gameState": {
-          ".write": "auth != null && root.child('rooms').child($roomCode).child('hostId').val() === auth.uid"
-        },
-        "updatedAt": {
-          ".write": "auth != null && root.child('rooms').child($roomCode).child('hostId').val() === auth.uid"
-        },
-        "players": {
+        "privateHands": {
           "$playerId": {
-            ".write": "auth != null && (auth.uid === $playerId || auth.uid === root.child('rooms').child($roomCode).child('hostId').val())"
+            ".read": "auth != null && auth.uid === $playerId",
+            ".write": "auth != null && auth.uid === root.child('rooms').child($roomCode).child('public').child('hostId').val()"
+          }
+        },
+        "actions": {
+          "$playerId": {
+            ".read": "auth != null && auth.uid === root.child('rooms').child($roomCode).child('public').child('hostId').val()",
+            ".write": "auth != null && auth.uid === $playerId"
           }
         }
       }

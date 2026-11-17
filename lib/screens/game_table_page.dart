@@ -4,16 +4,16 @@ import '../game/game_models.dart';
 import '../game/playing_card.dart';
 import '../game/scott_game_engine.dart';
 import '../network/game_state_codec.dart';
-import '../network/local_room_client.dart';
-import '../network/local_room_server.dart';
+typedef RoomAction = ({String playerId, Map<String, dynamic> action});
 
 class HostGameTablePage extends StatefulWidget {
-  const HostGameTablePage({super.key, required this.engine, required this.initialState, required this.server, required this.hostId, required this.actions});
+  const HostGameTablePage({super.key, required this.engine, required this.initialState, required this.publish, required this.sendToPlayer, required this.hostId, required this.actions});
   final ScottGameEngine engine;
   final GameState initialState;
-  final LocalRoomServer server;
+  final Future<void> Function(Map<String, dynamic>, Map<String, List<Map<String, dynamic>>>) publish;
+  final void Function(String, Map<String, dynamic>) sendToPlayer;
   final String hostId;
-  final Stream<({String playerId, Map<String, dynamic> action})> actions;
+  final Stream<RoomAction> actions;
   @override
   State<HostGameTablePage> createState() => _HostGameTablePageState();
 }
@@ -28,7 +28,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   void initState() {
     super.initState();
     _state = widget.initialState;
-    _publish();
+    unawaited(_publish());
     _actionsSub = widget.actions.listen((event) => _handleRemoteAction(event.playerId, event.action));
   }
 
@@ -38,12 +38,10 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     super.dispose();
   }
 
-  void _publish() {
-    widget.server.updateGameState(
-      GameStateCodec.publicState(_state, revealHands: _state.phase != GamePhase.waitingForTurn),
-      privateHands: GameStateCodec.privateHands(_state),
-    );
-  }
+  Future<void> _publish() => widget.publish(
+    GameStateCodec.publicState(_state, revealHands: _state.phase != GamePhase.waitingForTurn),
+    GameStateCodec.privateHands(_state),
+  );
 
   void _handleRemoteAction(String playerId, Map<String, dynamic> action) {
     if (!mounted || _state.phase != GamePhase.waitingForTurn || _state.currentPlayer.id != playerId) return;
@@ -61,10 +59,10 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
         _result = turn.roundResult;
       }
       _selected.clear();
-      _publish();
+      unawaited(_publish());
       setState(() {});
     } catch (_) {
-      widget.server.sendToPlayer(playerId, {'type': 'actionError', 'message': 'यह चाल मान्य नहीं है। फिर से प्रयास करें।'});
+      widget.sendToPlayer(playerId, {'type': 'actionError', 'message': 'यह चाल मान्य नहीं है। फिर से प्रयास करें।'});
     }
   }
 
@@ -72,7 +70,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     try {
       final turn = widget.engine.show(_state, widget.hostId);
       setState(() { _state = turn.state; _result = turn.roundResult; _selected.clear(); });
-      _publish();
+      unawaited(_publish());
     } catch (e) { _message(e.toString()); }
   }
 
@@ -80,7 +78,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     try {
       final turn = widget.engine.discardAndDraw(state: _state, playerId: widget.hostId, cardsToDiscard: _selected.toList(), drawSource: source);
       setState(() { _state = turn.state; _result = turn.roundResult; _selected.clear(); });
-      _publish();
+      unawaited(_publish());
     } catch (e) { _message(e.toString()); }
   }
 
@@ -207,8 +205,10 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
 }
 
 class RemoteGameTablePage extends StatefulWidget {
-  const RemoteGameTablePage({super.key, required this.client, required this.initialMessage});
-  final LocalRoomClient client;
+  const RemoteGameTablePage({super.key, required this.messages, required this.sendAction, required this.playerId, required this.initialMessage});
+  final Stream<Map<String, dynamic>> messages;
+  final void Function(Map<String, dynamic>) sendAction;
+  final String playerId;
   final Map<String, dynamic> initialMessage;
   @override
   State<RemoteGameTablePage> createState() => _RemoteGameTablePageState();
@@ -225,7 +225,7 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
   void initState() {
     super.initState();
     _apply(widget.initialMessage);
-    _sub = widget.client.messages.listen((message) {
+    _sub = widget.messages.listen((message) {
       if (message['type'] == 'game') setState(() => _apply(message));
       if (message['type'] == 'actionError') setState(() => _message = message['message'] as String?);
     });
@@ -243,7 +243,7 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
   @override
   Widget build(BuildContext context) {
     final players = (_public['players'] as List).cast<Map>();
-    final me = widget.client.playerId;
+    final me = widget.playerId;
     final currentId = _public['currentPlayerId'];
     final myTurn = currentId == me && _public['phase'] == GamePhase.waitingForTurn.name;
     final reveal = _public['revealHands'] == true;
@@ -278,12 +278,12 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
             })),
         ]),
         if (myTurn) ...[
-          OutlinedButton(onPressed: () => widget.client.sendAction({'type': 'show'}), child: const Text('SHOW')),
+          OutlinedButton(onPressed: () => widget.sendAction({'type': 'show'}), child: const Text('SHOW')),
           FilledButton(onPressed: _selected.isEmpty ? null : () {
-            widget.client.sendAction({'type': 'discard', 'cards': _selected.map(GameStateCodec.cardToJson).toList(), 'source': 'drawPile'});
+            widget.sendAction({'type': 'discard', 'cards': _selected.map(GameStateCodec.cardToJson).toList(), 'source': 'drawPile'});
           }, child: const Text('चुने पत्ते फेंकें + Draw Pile से लें')),
           OutlinedButton(onPressed: _selected.isEmpty ? null : () {
-            widget.client.sendAction({'type': 'discard', 'cards': _selected.map(GameStateCodec.cardToJson).toList(), 'source': 'previousPlayerDiscard'});
+            widget.sendAction({'type': 'discard', 'cards': _selected.map(GameStateCodec.cardToJson).toList(), 'source': 'previousPlayerDiscard'});
           }, child: const Text('चुने पत्ते फेंकें + पिछला पत्ता लें')),
         ],
         if (_message != null) Text(_message!, style: const TextStyle(color: Colors.red)),

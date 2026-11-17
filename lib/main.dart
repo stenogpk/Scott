@@ -247,9 +247,10 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
     Navigator.push(context, MaterialPageRoute(builder: (_) => HostGameTablePage(
       engine: engine,
       initialState: state,
-      server: _server,
       hostId: _server.players.first.id,
       actions: _actions.stream,
+      publish: (publicState, privateHands) async => _server.updateGameState(publicState, privateHands: privateHands),
+      sendToPlayer: _server.sendToPlayer,
     )));
   }
 
@@ -264,7 +265,7 @@ class _LocalWifiPageState extends State<LocalWifiPage> {
         if (message['type'] == 'error') setState(() => _error = message['message'] as String?);
         if (message['type'] == 'game' && !_gameOpened) {
           _gameOpened = true;
-          Navigator.push(context, MaterialPageRoute(builder: (_) => RemoteGameTablePage(client: _client, initialMessage: message)));
+          Navigator.push(context, MaterialPageRoute(builder: (_) => RemoteGameTablePage(messages: _client.messages, sendAction: _client.sendAction, playerId: _client.playerId!, initialMessage: message)));
         }
       });
       if (mounted) setState(() => _busy = false);

@@ -106,12 +106,15 @@ class ScottGameEngine {
     final updatedPlayers = [...state.players];
     updatedPlayers[state.currentPlayerIndex] = player.copyWith(hand: remainingHand);
     final updatedDiscard = [...state.discardPile, ...cardsToDiscard];
-    final updatedDrawPile = [...state.drawPile];
+    var updatedDrawPile = [...state.drawPile];
+    var reshuffled = false;
 
     late final PlayingCard drawnCard;
     if (drawSource == DrawSource.drawPile) {
       if (updatedDrawPile.isEmpty) {
-        throw StateError('Draw pile is empty; reshuffle rule is not finalized.');
+        updatedDrawPile = [...updatedDiscard]..shuffle(_random);
+        updatedDiscard.clear();
+        reshuffled = true;
       }
       drawnCard = updatedDrawPile.removeLast();
     } else {
@@ -133,7 +136,8 @@ class ScottGameEngine {
       drawPile: updatedDrawPile,
       discardPile: updatedDiscard,
       lastDiscardPlayerId: player.id,
-      lastDiscardGroup: cardsToDiscard,
+      lastDiscardGroup: reshuffled ? const [] : cardsToDiscard,
+      lastDiscardPlayerId: reshuffled ? null : player.id,
     );
 
     if (nextState.currentPlayer.handTotal == 0) {

@@ -552,6 +552,32 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
         if (_public['commentary'] is String && (_public['commentary'] as String).isNotEmpty)
           _sharedCommentaryBanner(_public['commentary'] as String),
         const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Column(children: [
+              const Text('DRAW PILE', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+              const SizedBox(height: 6),
+              Container(
+                width: 76, height: 104, alignment: Alignment.center,
+                decoration: BoxDecoration(color: const Color(0xFF183D5A), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white, width: 2), boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 4, offset: Offset(0, 2))]),
+                child: Text('${_public['drawPileCount']}', style: const TextStyle(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w900)),
+              ),
+            ]),
+            Column(children: [
+              const Text('DISCARD', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+              const SizedBox(height: 6),
+              if ((_public['discardPile'] as List? ?? const []).isEmpty)
+                Container(width: 76, height: 104, decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(10)))
+              else
+                _PlayingCardTile(
+                  card: GameStateCodec.cardFromJson(Map<String, dynamic>.from((_public['discardPile'] as List).last as Map)),
+                  selected: false, enabled: false, onTap: () {},
+                ),
+            ]),
+          ],
+        ),
+        const SizedBox(height: 14),
         if ((_public['discardPile'] as List? ?? const []).isNotEmpty) ...[
           const Text('खुले फेंके गए पत्ते', style: TextStyle(fontWeight: FontWeight.w800)),
           Wrap(spacing: 6, children: (_public['discardPile'] as List).map((v) { final card = GameStateCodec.cardFromJson(Map<String, dynamic>.from(v as Map)); return Text(card.toString(), style: TextStyle(color: card.suit.isRed ? Colors.red : Colors.black87, fontWeight: FontWeight.w700)); }).toList()),

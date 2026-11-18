@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'network/firebase_room_service.dart';
 import 'network/local_room_client.dart';
@@ -370,6 +371,12 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
         FilledButton.tonalIcon(onPressed: _busy ? null : () => _run(() => _service.joinRoom(code: _code.text.trim(), playerName: widget.playerName)), icon: const Icon(Icons.login), label: const Text('Join Room')),
       ] else ...[
         _RoomHeader(room: _room!),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: () => Share.share('SCOTT कार्ड गेम में मेरे साथ खेलें!\\nRoom Code: ${_room!.code}\\nTarget: ${_room!.targetScore} अंक\\nSCOTT ऐप खोलें और Online Multiplayer में Join Room करके यह code डालें: ${_room!.code}'),
+          icon: const Icon(Icons.share),
+          label: const Text('Share Room / Invite Friends'),
+        ),
         const SizedBox(height: 16),
         _PlayerList(players: _room!.players),
         if (_room!.hostId == _service.userId) ...[

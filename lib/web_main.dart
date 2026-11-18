@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -102,7 +104,7 @@ class _ScottWebHomeState extends State<ScottWebHome> {
       const SizedBox(height:18),
       TextField(controller:_name,maxLength:18,decoration:const InputDecoration(labelText:'आपका नाम',prefixIcon:Icon(Icons.person))),
       if (_room == null) ...[
-        DropdownButtonFormField<int>(value:_target,decoration:const InputDecoration(labelText:'Target Score'),items:const [100,150,200].map((v)=>DropdownMenuItem(value:v,child:Text('$v अंक'))).toList(),onChanged:(v){if(v!=null)setState(()=>_target=v);}),
+        DropdownButtonFormField<int>(initialValue:_target,decoration:const InputDecoration(labelText:'Target Score'),items:const [100,150,200].map((v)=>DropdownMenuItem(value:v,child:Text('$v अंक'))).toList(),onChanged:(v){if(v!=null)setState(()=>_target=v);}),
         const SizedBox(height:12),
         FilledButton.icon(onPressed:_busy?null:_create,icon:const Icon(Icons.add),label:const Text('नया Room बनाएँ')),
         const Divider(height:32),

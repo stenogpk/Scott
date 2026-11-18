@@ -289,7 +289,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   Widget _opponents() => Wrap(
     spacing: 8, runSpacing: 8,
     children: [
-      for (final p in _state.players.where((p) => p.id != widget.hostId))
+      for (final p in _state.players)
         Container(
           width: 145, padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(color: p.isEliminated ? const Color(0xFFFFE6E6) : Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE0E7EC))),

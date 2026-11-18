@@ -373,7 +373,7 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
         _RoomHeader(room: _room!),
         const SizedBox(height: 12),
         FilledButton.icon(
-          onPressed: () => Share.share('SCOTT कार्ड गेम में मेरे साथ खेलें!\\nRoom Code: ${_room!.code}\\nTarget: ${_room!.targetScore} अंक\\nSCOTT ऐप खोलें और Online Multiplayer में Join Room करके यह code डालें: ${_room!.code}'),
+          onPressed: () => Share.share('SCOTT कार्ड गेम में मेरे साथ खेलें!\\n\\nWeb पर खेलने के लिए यह लिंक खोलें: https://stenogpk.github.io/Scott/\\n\\nRoom Code: ${_room!.code}\\nTarget: ${_room!.targetScore} अंक\\n\\nलिंक खोलकर Online Multiplayer में Join Room चुनें और ऊपर दिया गया Room Code डालें।'),
           icon: const Icon(Icons.share),
           label: const Text('Share Room / Invite Friends'),
         ),

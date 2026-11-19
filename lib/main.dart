@@ -398,6 +398,10 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
         ),
         const SizedBox(height: 16),
         _PlayerList(players: _room!.players),
+        OutlinedButton.icon(onPressed: _busy ? null : () async {
+          final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('कमरा छोड़ें?'), content: const Text('अगर आप Host हैं तो कमरे का Host अगले ऑनलाइन खिलाड़ी को दिया जाएगा।'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('रुकें')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('कमरा छोड़ें'))]));
+          if (confirmed == true) { await _service.leaveRoom(_room!.code); _presenceTimer?.cancel(); if (mounted) setState(() => _room = null); }
+        }, icon: const Icon(Icons.exit_to_app), label: const Text('कमरा छोड़ें')),
         if (_room!.hostId == _service.userId) ...[
           const SizedBox(height: 12),
           FilledButton.icon(onPressed: _busy || _room!.players.length < 2 ? null : _startOnlineGame, icon: const Icon(Icons.play_arrow_rounded), label: const Text('Start Game')),

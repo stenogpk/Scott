@@ -2,6 +2,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:confetti/confetti.dart';
 import '../game/game_models.dart';
@@ -83,18 +84,25 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     if (seenAt <= 0) return;
     final disconnectedSince = current.leftAt > 0 ? current.leftAt : seenAt;
     final disconnectedFor = now.millisecondsSinceEpoch - disconnectedSince;
+    final hasLeft = current.leftAt > 0;
     final disconnectedExpired = !current.isConnected && disconnectedFor >= const Duration(seconds: 25).inMilliseconds || current.isConnected && now.millisecondsSinceEpoch - seenAt >= const Duration(seconds: 25).inMilliseconds;
-    final afkExpired = current.isConnected && current.leftAt == 0 && now.difference(_turnStartedAt) >= const Duration(seconds: 60);
-    if (!disconnectedExpired && !afkExpired) return;
+    final afkExpired = current.isConnected && !hasLeft && now.difference(_turnStartedAt) >= const Duration(seconds: 60);
+    if (!hasLeft && !disconnectedExpired && !afkExpired) return;
     final skippedName = _state.currentPlayer.name;
+    final playerId = _state.currentPlayer.id;
     try {
+      final missed = _state.missedTurnCounts[playerId] ?? 0;
+      final eliminate = hasLeft || missed >= 1;
       setState(() {
-        _state = widget.engine.skipTurn(_state, _state.currentPlayer.id);
-        _result = null;
-        _selected.clear();
-        _turnStartedAt = now;
+        if (eliminate) {
+          _state = widget.engine.eliminateForPresence(_state, playerId);
+        } else {
+          _state = _state.copyWith(missedTurnCounts: {..._state.missedTurnCounts, playerId: missed + 1});
+          _state = widget.engine.skipTurn(_state, playerId);
+        }
+        _result = null; _selected.clear(); _turnStartedAt = now;
       });
-      _commentaryText = disconnectedExpired ? '$skippedName डिस्कनेक्ट होने के कारण अगली बारी पर गया।' : '$skippedName की बारी AFK होने के कारण आगे बढ़ी।';
+      _commentaryText = eliminate ? '$skippedName को अनुपस्थित रहने पर Eliminated कर दिया गया।' : hasLeft ? '$skippedName ने रूम छोड़ दिया।' : disconnectedExpired ? '$skippedName की चाल Disconnected होने पर पहली बार Skip हुई।' : '$skippedName की चाल AFK होने पर पहली बार Skip हुई।';
       _commentaryTimer?.cancel();
       _commentaryTimer = Timer(const Duration(seconds: 4), () { if (mounted) setState(() => _commentaryText = null); });
       unawaited(_publish());
@@ -164,6 +172,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
       }
       _selected.clear();
       _turnStartedAt = DateTime.now();
+      _state = _state.copyWith(missedTurnCounts: {..._state.missedTurnCounts}..remove(playerId));
       if (action['type'] == 'discard') {
         unawaited(ScottAudio.instance.play('card_discard'));
         unawaited(ScottAudio.instance.play(action['source'] == 'previousPlayerDiscard' ? 'previous_pickup' : 'card_draw'));
@@ -263,7 +272,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     final currentPresence = _latestRoom?.players.where((p) => p.id == current.id).toList() ?? const <RoomPlayer>[];
     final isDisconnected = currentPresence.isNotEmpty && currentPresence.first.lastSeenAt > 0 && DateTime.now().millisecondsSinceEpoch - currentPresence.first.lastSeenAt > const Duration(seconds: 20).inMilliseconds;
     return Scaffold(
-      appBar: AppBar(title: Text(isFinished ? 'विजेता' : 'SCOTT • राउंड ${_state.roundNumber}'), actions: [
+      appBar: AppBar(title: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(isFinished ? 'विजेता' : 'SCOTT • राउंड ${_state.roundNumber}', maxLines: 1, softWrap: false)), actions: [
         if (widget.onLeave != null) IconButton(tooltip: 'गेम छोड़ें', onPressed: widget.onLeave, icon: const Icon(Icons.exit_to_app)),
         IconButton(tooltip: 'खेल के नियम / How to Play', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage())), icon: const Icon(Icons.menu_book_outlined)),
         IconButton(tooltip: 'Scoreboard', onPressed: _scoreboard, icon: const Icon(Icons.leaderboard_outlined)),
@@ -361,8 +370,9 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     final isDisconnected = !presence.isConnected || isStale;
     final isAfk = !isDisconnected && presence.leftAt == 0 && presence.lastActionAt > 0 &&
         now - presence.lastActionAt >= const Duration(seconds: 60).inMilliseconds;
-    final label = isLeft ? 'Left' : isDisconnected ? 'Disconnected' : isAfk ? 'AFK' : 'Online';
-    final color = isLeft ? const Color(0xFF9CA3AF) : isDisconnected ? const Color(0xFFDC2626) :
+    final eliminated = player.isEliminated;
+    final label = eliminated ? 'Eliminated' : isLeft ? 'Left' : isDisconnected ? 'Disconnected' : isAfk ? 'AFK' : 'Online';
+    final color = eliminated ? const Color(0xFF171717) : isLeft ? const Color(0xFF9CA3AF) : isDisconnected ? const Color(0xFFDC2626) :
         isAfk ? const Color(0xFFB88952) : const Color(0xFF16A34A);
     return Row(mainAxisSize: MainAxisSize.min, children: [
       Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
@@ -385,7 +395,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(
               children: [
-                Expanded(child: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800))),
+                Expanded(child: p.isEliminated ? Opacity(opacity: .62, child: ImageFiltered(imageFilter: ui.ImageFilter.blur(sigmaX: .45, sigmaY: .45), child: Text('${p.name} • Eliminated', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)))) : Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800))),
                 if (_latestRoom != null) _playerStatusIndicator(p),
               ],
             ),
@@ -652,7 +662,7 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
     final currentPlayer = players.cast<Map>().firstWhere((p) => p['id'] == currentId, orElse: () => players.first);
     return Scaffold(
       appBar: AppBar(
-        title: Text(phase == GamePhase.gameComplete.name ? 'विजेता' : 'SCOTT • राउंड ${_public['roundNumber']}'),
+        title: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: Text(phase == GamePhase.gameComplete.name ? 'विजेता' : 'SCOTT • राउंड ${_public['roundNumber']}', maxLines: 1, softWrap: false)),
         actions: [
           if (widget.onLeave != null) IconButton(tooltip: 'गेम छोड़ें', onPressed: widget.onLeave, icon: const Icon(Icons.exit_to_app)),
           IconButton(tooltip: 'खेल के नियम / How to Play', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage())), icon: const Icon(Icons.menu_book_outlined)),
@@ -703,7 +713,7 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
                   width: p['id'] == currentId && phase == GamePhase.waitingForTurn.name ? 2 : 1),
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${p['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+                p['isEliminated'] == true ? Opacity(opacity: .62, child: ImageFiltered(imageFilter: ui.ImageFilter.blur(sigmaX: .45, sigmaY: .45), child: Text('${p['name']} • Eliminated', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)))) : Text('${p['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
                 Text('स्कोर: ${p['score']}', style: const TextStyle(fontSize: 12)),
                 if (p['isEliminated'] == true) const Text('ससम्मान बाहेर 😂', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.w800)),
                 if (reveal) ...[

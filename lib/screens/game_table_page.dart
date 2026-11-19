@@ -32,6 +32,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   final ScottCommentary _commentary = ScottCommentary();
   late final ConfettiController _confetti;
   String? _commentaryText;
+  Timer? _commentaryTimer;
   StreamSubscription<({String playerId, Map<String, dynamic> action})>? _actionsSub;
 
   @override
@@ -46,6 +47,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   @override
   void dispose() {
     unawaited(_actionsSub?.cancel());
+    _commentaryTimer?.cancel();
     _confetti.dispose();
     super.dispose();
   }
@@ -139,6 +141,12 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
       return;
     }
     _commentaryText = _commentary.next(category, name);
+    _commentaryTimer?.cancel();
+    _commentaryTimer = Timer(const Duration(seconds: 4), () {
+      if (!mounted) return;
+      setState(() => _commentaryText = null);
+      unawaited(_publish());
+    });
   }
 
   void _playRoundSounds() {
@@ -257,25 +265,15 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
           style: const TextStyle(fontWeight: FontWeight.w800),
         ),
         const SizedBox(height: 5),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              for (final player in _state.players)
-                Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: Chip(
-                    visualDensity: VisualDensity.compact,
-                    backgroundColor: player.isEliminated ? const Color(0xFFFFDCDC) : Colors.white,
-                    label: Text(
-                      '${player.name}: ${player.score}${player.isEliminated ? ' • OUT' : ''}',
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
+        Wrap(spacing: 6, runSpacing: 4, children: [
+          for (final player in _state.players)
+            ConstrainedBox(constraints: const BoxConstraints(minWidth: 90, maxWidth: 150), child: Chip(
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              backgroundColor: player.isEliminated ? const Color(0xFFFFDCDC) : Colors.white,
+              label: Text('${player.name}: ${player.score}${player.isEliminated ? ' • OUT' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+            )),
+        ]),
       ],
     ),
   );
@@ -292,7 +290,11 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
       for (final p in _state.players)
         Container(
           width: 145, padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: p.isEliminated ? const Color(0xFFFFE6E6) : Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFE0E7EC))),
+          decoration: BoxDecoration(
+            color: p.isEliminated ? const Color(0xFFFFE6E6) : p.id == _state.currentPlayer.id && _state.phase == GamePhase.waitingForTurn ? const Color(0xFFE0F4EF) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: p.id == _state.currentPlayer.id && _state.phase == GamePhase.waitingForTurn ? const Color(0xFF16A6A1) : const Color(0xFFE0E7EC), width: p.id == _state.currentPlayer.id && _state.phase == GamePhase.waitingForTurn ? 2 : 1),
+          ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
             Text('स्कोर: ${p.score}', style: const TextStyle(fontSize: 12)),
@@ -317,19 +319,22 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
       const Text('DISCARD', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
       const SizedBox(height: 6),
       if (_state.discardPile.isEmpty) Container(width: 58, height: 82, decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(8)))
-      else _PlayingCardTile(card: _state.discardPile.last, selected: false, enabled: false, onTap: () {}),
+      else SizedBox(width: 100, height: 90, child: Stack(clipBehavior: Clip.none, children: [
+        for (var i = 0; i < _state.lastDiscardGroup.length; i++)
+          Positioned(left: i * 9.0, top: i.isEven ? 0 : 5, child: _PlayingCardTile(card: _state.lastDiscardGroup[i], selected: false, enabled: false, onTap: () {})),
+      ])),
     ]),
   ]);
 
   Widget _turnControls() => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-    OutlinedButton.icon(onPressed: _show, icon: const Icon(Icons.visibility), label: const Text('SHOW')),
-    const SizedBox(height: 8),
     FilledButton(onPressed: _selected.isEmpty ? null : () => _discard(DrawSource.drawPile), child: Text('चुने पत्ते फेंकें + Draw Pile से 1 लें (${_selected.length})')),
     OutlinedButton(onPressed: _selected.isEmpty || _state.lastDiscardGroup.isEmpty ? null : () => _discard(DrawSource.previousPlayerDiscard), child: const Text('पत्ते फेंकें + पिछले खिलाड़ी का पत्ता लें')),
+    const SizedBox(height: 8),
+    OutlinedButton.icon(onPressed: _show, icon: const Icon(Icons.visibility), label: const Text('SHOW')),
   ]);
 
-  Widget _roundResultPanel() => Card(color: const Color(0xFFEAF5EE), child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-    Text(_result?.wasSuccessful == true ? 'SHOW सफल!' : 'SHOW असफल!', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 21)),
+  Widget _roundResultPanel() => Card(color: _result?.wasSuccessful == true ? const Color(0xFFEAF5EE) : const Color(0xFFFFE9EC), child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    Text('कॉलर ${_state.playerById(_result?.callerId ?? '')?.name ?? '—'} — ${_result?.wasSuccessful == true ? 'SHOW सफल!' : 'SHOW असफल!'}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 21)),
     const SizedBox(height: 8),
     for (final p in _state.players)
       Text('${p.name}: हाथ ${p.handTotal} • इस राउंड +${_result?.pointsAdded[p.id] ?? 0} • कुल ${p.score}${p.isEliminated ? ' • ससम्मान बाहेर 😂' : ''}'),
@@ -417,6 +422,8 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
   StreamSubscription<Map<String, dynamic>>? _sub;
   String? _message;
   String? _lastSnapshotFingerprint;
+  Timer? _commentaryTimer;
+  String? _lastCommentary;
 
   @override
   void initState() {
@@ -447,10 +454,20 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
     }
     _public = nextPublic;
     _hand = nextHand;
+    final commentary = nextPublic['commentary'] as String?;
+    if (commentary != _lastCommentary) {
+      _lastCommentary = commentary;
+      _commentaryTimer?.cancel();
+      if (commentary != null && commentary.isNotEmpty) {
+        _commentaryTimer = Timer(const Duration(seconds: 4), () {
+          if (mounted && _lastCommentary == commentary) setState(() => _lastCommentary = null);
+        });
+      }
+    }
   }
 
   @override
-  void dispose() { unawaited(_sub?.cancel()); super.dispose(); }
+  void dispose() { unawaited(_sub?.cancel()); _commentaryTimer?.cancel(); super.dispose(); }
 
   void _scoreboard() {
     final players = (_public['players'] as List).cast<Map>();
@@ -549,8 +566,8 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
                 Row(children: List.generate((p['handCount'] as int? ?? 0), (_) => const Padding(padding: EdgeInsets.only(right: 3), child: _CardBack()))),
             ]),
           ),
-        if (_public['commentary'] is String && (_public['commentary'] as String).isNotEmpty)
-          _sharedCommentaryBanner(_public['commentary'] as String),
+        if (_lastCommentary != null && _lastCommentary!.isNotEmpty)
+          _sharedCommentaryBanner(_lastCommentary!),
         const SizedBox(height: 12),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,

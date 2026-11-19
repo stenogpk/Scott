@@ -135,6 +135,8 @@ class _ScottWebHomeState extends State<ScottWebHome> {
       if(_busy)const Padding(padding:EdgeInsets.all(16),child:Center(child:CircularProgressIndicator())),
       if(_error!=null)Padding(padding:const EdgeInsets.only(top:12),child:Text(_error!,style:const TextStyle(color:Colors.red))),
       const SizedBox(height:20),const Text('Online game runs through Firebase. 2–5 players per room.',textAlign:TextAlign.center,style:TextStyle(color:Colors.blueGrey)),
+      const SizedBox(height:10),
+      const Card(child: ListTile(leading: Icon(Icons.wifi_off_outlined), title: Text('Local Wi-Fi Multiplayer'), subtitle: Text('यह सुविधा Android ऐप में उपलब्ध है। Browser सुरक्षा सीमाओं के कारण Web पर Local Wi-Fi Host/Join उपलब्ध नहीं है.'), enabled: false)),
       const SizedBox(height:10),const Center(child: Text('Developed by Shartendu', style: TextStyle(color: Color(0xFF71808C), fontWeight: FontWeight.w800))),
     ]))),
   );
@@ -177,6 +179,8 @@ class _ScottWebSettingsPageState extends State<ScottWebSettingsPage> {
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage()))),
             const ListTile(title: Text('Online Multiplayer'),
               subtitle: Text('Firebase Guest Authentication और Realtime Database')),
+            const ListTile(leading: Icon(Icons.wifi_off_outlined), title: Text('Local Wi-Fi'),
+              subtitle: Text('केवल Android ऐप में उपलब्ध; Browser में Local Wi-Fi Host/Join समर्थित नहीं है.')),
             const ListTile(title: Text('Developer'), subtitle: Text('Developed by Shartendu')),
           ]),
         ),

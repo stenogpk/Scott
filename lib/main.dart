@@ -281,6 +281,7 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
   StreamSubscription<Map<String, dynamic>>? _gameSub;
   Timer? _presenceTimer;
   bool _gameOpened = false;
+  bool _hostPromoted = false;
   int _target = 150;
   bool _customTarget = false;
   final _customTargetController = TextEditingController(text: '175');
@@ -312,7 +313,41 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
   void _watchOnlineGame(String code) {
     unawaited(_gameSub?.cancel());
     _gameSub = _service.watchGame(code).listen((message) {
-      if (!mounted || _gameOpened || message['type'] != 'game') return;
+      if (!mounted) return;
+      if (message['type'] == 'host' && !_hostPromoted) {
+        _hostPromoted = true;
+        _gameOpened = true;
+        final recovery = Map<String, dynamic>.from(message['recovery'] as Map);
+        final engine = ScottGameEngine();
+        final state = GameStateCodec.stateFromHostRecovery(recovery);
+        final actions = _service.watchActions(code).asyncExpand((items) => Stream<RoomAction>.fromIterable(items.map((item) => (
+          playerId: item['playerId'] as String,
+          action: Map<String, dynamic>.from(item['action'] as Map),
+        ))));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => HostGameTablePage(
+          engine: engine,
+          initialState: state,
+          initialHistory: (recovery['history'] as List? ?? const []).map((v) => Map<String, dynamic>.from(v as Map)).toList(),
+          hostId: _service.userId!,
+          actions: actions,
+          publish: (publicState, privateHands) => _service.publishGameState(code, publicState, privateHands),
+          sendToPlayer: (_, __) {},
+          roomPresence: _service.watchRoom(code),
+          onLeave: () async {
+            final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+              title: const Text('गेम छोड़ें?'),
+              content: const Text('आप Host हैं। गेम छोड़ने पर अगला ऑनलाइन खिलाड़ी Host बनेगा।'),
+              actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('रुकें')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('गेम छोड़ें'))],
+            ));
+            if (confirmed == true) {
+              try { await _service.leaveRoom(code); if (mounted) Navigator.of(context).pop(); }
+              catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', '')))); }
+            }
+          },
+        )));
+        return;
+      }
+      if (_gameOpened || message['type'] != 'game') return;
       _gameOpened = true;
       Navigator.push(context, MaterialPageRoute(builder: (_) => RemoteGameTablePage(
         messages: _service.watchGame(code),

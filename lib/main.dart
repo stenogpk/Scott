@@ -347,6 +347,11 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
         actions: actions,
         publish: (publicState, privateHands) => _service.publishGameState(room.code, publicState, privateHands),
         sendToPlayer: (_, __) {},
+        roomPresence: _service.watchRoom(room.code),
+        onLeave: () async {
+          final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('गेम छोड़ें?'), content: const Text('आपका खिलाड़ी डिस्कनेक्ट हो जाएगा। Lobby में Host छोड़ता है तो Host दूसरे ऑनलाइन खिलाड़ी को दिया जाएगा।'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('रुकें')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('गेम छोड़ें'))]));
+          if (confirmed == true) { await _service.leaveRoom(room.code); if (mounted) Navigator.of(context).pop(); }
+        },
       )));
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _busy = false; });

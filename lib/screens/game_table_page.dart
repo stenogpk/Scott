@@ -8,19 +8,22 @@ import '../game/game_models.dart';
 import '../game/playing_card.dart';
 import '../game/scott_game_engine.dart';
 import '../network/game_state_codec.dart';
+import '../network/room_models.dart';
 import '../services/scott_audio.dart';
 import '../game/commentary.dart';
 import 'scott_rules_page.dart';
 typedef RoomAction = ({String playerId, Map<String, dynamic> action});
 
 class HostGameTablePage extends StatefulWidget {
-  const HostGameTablePage({super.key, required this.engine, required this.initialState, required this.publish, required this.sendToPlayer, required this.hostId, required this.actions});
+  const HostGameTablePage({super.key, required this.engine, required this.initialState, required this.publish, required this.sendToPlayer, required this.hostId, required this.actions, this.roomPresence, this.onLeave});
   final ScottGameEngine engine;
   final GameState initialState;
   final Future<void> Function(Map<String, dynamic>, Map<String, List<Map<String, dynamic>>>) publish;
   final void Function(String, Map<String, dynamic>) sendToPlayer;
   final String hostId;
   final Stream<RoomAction> actions;
+  final Stream<RoomSnapshot>? roomPresence;
+  final Future<void> Function()? onLeave;
   @override
   State<HostGameTablePage> createState() => _HostGameTablePageState();
 }
@@ -35,6 +38,10 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   String? _commentaryText;
   Timer? _commentaryTimer;
   StreamSubscription<({String playerId, Map<String, dynamic> action})>? _actionsSub;
+  StreamSubscription<RoomSnapshot>? _presenceSub;
+  RoomSnapshot? _latestRoom;
+  Timer? _afkTimer;
+  DateTime _turnStartedAt = DateTime.now();
 
   @override
   void initState() {
@@ -43,14 +50,47 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     _confetti = ConfettiController(duration: const Duration(seconds: 4));
     unawaited(_publish());
     _actionsSub = widget.actions.listen((event) => _handleRemoteAction(event.playerId, event.action));
+    if (widget.roomPresence != null) {
+      _presenceSub = widget.roomPresence!.listen((room) { _latestRoom = room; });
+      _afkTimer = Timer.periodic(const Duration(seconds: 2), (_) => _checkInactiveTurn());
+    }
   }
 
   @override
   void dispose() {
     unawaited(_actionsSub?.cancel());
+    unawaited(_presenceSub?.cancel());
+    _afkTimer?.cancel();
     _commentaryTimer?.cancel();
     _confetti.dispose();
     super.dispose();
+  }
+
+  void _checkInactiveTurn() {
+    if (!mounted || _state.phase != GamePhase.waitingForTurn) return;
+    final player = _latestRoom?.players.where((p) => p.id == _state.currentPlayer.id).toList();
+    if (player == null || player.isEmpty) return;
+    final current = player.first;
+    final now = DateTime.now();
+    final seenAt = current.lastSeenAt;
+    if (seenAt <= 0) return;
+    final disconnectedFor = now.millisecondsSinceEpoch - seenAt;
+    final disconnectedExpired = disconnectedFor >= const Duration(seconds: 80).inMilliseconds;
+    final afkExpired = current.isConnected && current.leftAt == 0 && now.difference(_turnStartedAt) >= const Duration(seconds: 60);
+    if (!disconnectedExpired && !afkExpired) return;
+    final skippedName = _state.currentPlayer.name;
+    try {
+      setState(() {
+        _state = widget.engine.skipTurn(_state, _state.currentPlayer.id);
+        _result = null;
+        _selected.clear();
+        _turnStartedAt = now;
+      });
+      _commentaryText = disconnectedExpired ? '$skippedName डिस्कनेक्ट होने के कारण अगली बारी पर गया।' : '$skippedName की बारी AFK होने के कारण आगे बढ़ी।';
+      _commentaryTimer?.cancel();
+      _commentaryTimer = Timer(const Duration(seconds: 4), () { if (mounted) setState(() => _commentaryText = null); });
+      unawaited(_publish());
+    } catch (_) {}
   }
 
   Future<void> _publish() {
@@ -110,6 +150,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
         throw StateError('Unknown action type.');
       }
       _selected.clear();
+      _turnStartedAt = DateTime.now();
       if (action['type'] == 'discard') {
         unawaited(ScottAudio.instance.play('card_discard'));
         unawaited(ScottAudio.instance.play(action['source'] == 'previousPlayerDiscard' ? 'previous_pickup' : 'card_draw'));
@@ -169,7 +210,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   void _show() {
     try {
       final turn = widget.engine.show(_state, widget.hostId);
-      setState(() { _state = turn.state; _result = turn.roundResult; _selected.clear(); });
+      setState(() { _state = turn.state; _result = turn.roundResult; _selected.clear(); _turnStartedAt = DateTime.now(); });
       _playRoundSounds();
       _announce(widget.hostId, actionType: 'show');
       _recordRound();
@@ -183,7 +224,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
       unawaited(ScottAudio.instance.play('card_discard'));
       unawaited(ScottAudio.instance.play(source == DrawSource.drawPile ? 'card_draw' : 'previous_pickup'));
       final turn = widget.engine.discardAndDraw(state: _state, playerId: widget.hostId, cardsToDiscard: _selected.toList(), drawSource: source);
-      setState(() { _state = turn.state; _result = turn.roundResult; _selected.clear(); });
+      setState(() { _state = turn.state; _result = turn.roundResult; _selected.clear(); _turnStartedAt = DateTime.now(); });
       _playRoundSounds();
       _announce(widget.hostId, actionType: 'discard', discardedCount: discardedCount, source: source);
       _recordRound();
@@ -195,7 +236,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     final caller = _result?.callerId;
     unawaited(ScottAudio.instance.play('shuffle'));
     final next = widget.engine.startNextRound(_state, starterId: caller);
-    setState(() { _state = next; _result = null; _selected.clear(); });
+    setState(() { _state = next; _result = null; _selected.clear(); _turnStartedAt = DateTime.now(); });
     unawaited(_publish());
   }
 
@@ -208,6 +249,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     final isFinished = _state.phase == GamePhase.gameComplete;
     return Scaffold(
       appBar: AppBar(title: Text(isFinished ? 'विजेता' : 'SCOTT • राउंड ${_state.roundNumber}'), actions: [
+        if (widget.onLeave != null) IconButton(tooltip: 'गेम छोड़ें', onPressed: widget.onLeave, icon: const Icon(Icons.exit_to_app)),
         IconButton(tooltip: 'खेल के नियम / How to Play', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage())), icon: const Icon(Icons.menu_book_outlined)),
         IconButton(tooltip: 'Scoreboard', onPressed: _scoreboard, icon: const Icon(Icons.leaderboard_outlined)),
       ]),

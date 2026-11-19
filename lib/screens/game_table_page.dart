@@ -15,7 +15,7 @@ import 'scott_rules_page.dart';
 typedef RoomAction = ({String playerId, Map<String, dynamic> action});
 
 class HostGameTablePage extends StatefulWidget {
-  const HostGameTablePage({super.key, required this.engine, required this.initialState, required this.publish, required this.sendToPlayer, required this.hostId, required this.actions, this.roomPresence, this.onLeave});
+  const HostGameTablePage({super.key, required this.engine, required this.initialState, required this.publish, required this.sendToPlayer, required this.hostId, required this.actions, this.roomPresence, this.onLeave, this.initialHistory = const []});
   final ScottGameEngine engine;
   final GameState initialState;
   final Future<void> Function(Map<String, dynamic>, Map<String, List<Map<String, dynamic>>>) publish;
@@ -24,6 +24,7 @@ class HostGameTablePage extends StatefulWidget {
   final Stream<RoomAction> actions;
   final Stream<RoomSnapshot>? roomPresence;
   final Future<void> Function()? onLeave;
+  final List<Map<String, dynamic>> initialHistory;
   @override
   State<HostGameTablePage> createState() => _HostGameTablePageState();
 }
@@ -47,6 +48,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
   void initState() {
     super.initState();
     _state = widget.initialState;
+    _history.addAll(widget.initialHistory.map((entry) => Map<String, dynamic>.from(entry)));
     _confetti = ConfettiController(duration: const Duration(seconds: 4));
     unawaited(_publish());
     _actionsSub = widget.actions.listen((event) => _handleRemoteAction(event.playerId, event.action));

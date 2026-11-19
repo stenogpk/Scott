@@ -1,16 +1,22 @@
 class RoomPlayer {
-  const RoomPlayer({required this.id, required this.name, this.isHost = false, this.isConnected = true, this.isReady = false});
+  const RoomPlayer({required this.id, required this.name, this.isHost = false, this.isConnected = true, this.isReady = false, this.lastSeenAt = 0, this.lastActionAt = 0, this.leftAt = 0});
   final String id;
   final String name;
   final bool isHost;
   final bool isConnected;
   final bool isReady;
-  Map<String, Object?> toJson() => {'id': id, 'name': name, 'isHost': isHost, 'isConnected': isConnected, 'isReady': isReady};
+  final int lastSeenAt;
+  final int lastActionAt;
+  final int leftAt;
+  Map<String, Object?> toJson() => {'id': id, 'name': name, 'isHost': isHost, 'isConnected': isConnected, 'isReady': isReady, 'lastSeenAt': lastSeenAt, 'lastActionAt': lastActionAt, 'leftAt': leftAt};
   factory RoomPlayer.fromJson(Map<String, dynamic> json) => RoomPlayer(
     id: json['id'] as String, name: json['name'] as String,
     isHost: json['isHost'] as bool? ?? false,
     isConnected: json['isConnected'] as bool? ?? true,
     isReady: json['isReady'] as bool? ?? false,
+    lastSeenAt: json['lastSeenAt'] as int? ?? 0,
+    lastActionAt: json['lastActionAt'] as int? ?? 0,
+    leftAt: json['leftAt'] as int? ?? 0,
   );
 }
 

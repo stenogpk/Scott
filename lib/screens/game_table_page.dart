@@ -569,7 +569,10 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(phase == GamePhase.gameComplete.name ? 'विजेता' : 'SCOTT • राउंड ${_public['roundNumber']}'),
-        actions: [IconButton(tooltip: 'Scoreboard', onPressed: _scoreboard, icon: const Icon(Icons.leaderboard_outlined))],
+        actions: [
+          IconButton(tooltip: 'खेल के नियम / How to Play', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage())), icon: const Icon(Icons.menu_book_outlined)),
+          IconButton(tooltip: 'Scoreboard', onPressed: _scoreboard, icon: const Icon(Icons.leaderboard_outlined)),
+        ],
       ),
       body: SafeArea(child: ListView(padding: const EdgeInsets.all(14), children: [
         Container(

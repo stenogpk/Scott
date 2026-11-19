@@ -46,10 +46,11 @@ class _ScottWebHomeState extends State<ScottWebHome> {
   String? _error;
   int _target = 150;
   StreamSubscription<Map<String,dynamic>>? _gameSub;
+  Timer? _presenceTimer;
   bool _opened = false;
 
   @override
-  void dispose() { _name.dispose(); _code.dispose(); unawaited(_gameSub?.cancel()); unawaited(_service.dispose()); super.dispose(); }
+  void dispose() { _presenceTimer?.cancel(); _name.dispose(); _code.dispose(); unawaited(_gameSub?.cancel()); unawaited(_service.dispose()); super.dispose(); }
 
   String get _inviteLink => '${Uri.base.origin}${Uri.base.path}?room=${_room?.code ?? _code.text.trim().toUpperCase()}';
 
@@ -61,6 +62,9 @@ class _ScottWebHomeState extends State<ScottWebHome> {
       final room = await task();
       if (!mounted) return;
       setState(() { _room = room; _busy = false; });
+      _presenceTimer?.cancel();
+      _presenceTimer = Timer.periodic(const Duration(seconds: 10), (_) => unawaited(_service.updatePresence(room.code)));
+      unawaited(_service.updatePresence(room.code));
       if (room.hostId != _service.userId) _watchGame(room.code);
     } catch (e) {
       if (mounted) setState(() { _error = e.toString().replaceFirst('Bad state: ', ''); _busy = false; });

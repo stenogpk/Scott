@@ -71,8 +71,12 @@ class FirebaseRoomService {
 
   Future<void> publishGameState(String code, Map<String, dynamic> publicState, Map<String, List<Map<String, dynamic>>> privateHands) async {
     await _ensureSignedIn();
+    final recovery = publicState.remove('_hostRecovery');
     final room = await getRoom(code);
     if (room.hostId != _userId) throw StateError('Only the room host can publish the game state.');
+    if (recovery is Map) {
+      await _putPath('rooms/${room.code}/private/hostState', jsonEncode(Map<String, dynamic>.from(recovery)));
+    }
     final hostPlayer = room.players.where((p) => p.id == _userId).toList();
     if (hostPlayer.isNotEmpty) {
       final now = DateTime.now().millisecondsSinceEpoch;
@@ -116,7 +120,7 @@ class FirebaseRoomService {
   Future<bool> claimHostIfStale(String code) async {
     await _ensureSignedIn();
     final room = await getRoom(code);
-    if (room.started || room.hostId == _userId) return false;
+    if (room.hostId == _userId) return false;
     final currentHost = room.players.where((p) => p.id == room.hostId).toList();
     if (currentHost.isNotEmpty) {
       final lastSeen = currentHost.first.lastSeenAt;
@@ -124,8 +128,12 @@ class FirebaseRoomService {
     }
     final me = room.players.where((p) => p.id == _userId && p.isConnected && p.leftAt == 0).toList();
     if (me.isEmpty) return false;
+    // The database rule performs the stale-host check again at write time.
+    // This prevents two clients that noticed the timeout together from both
+    // taking over: only the first hostId write can pass the rule.
     await _putPath('rooms/${room.code}/public/hostId', jsonEncode(_userId));
-    for (final player in room.players) {
+    final refreshed = await getRoom(room.code);
+    for (final player in refreshed.players) {
       await _putPath('rooms/${room.code}/public/players/${player.id}', jsonEncode({...player.toJson(), 'isHost': player.id == _userId}));
     }
     return true;
@@ -190,6 +198,13 @@ class FirebaseRoomService {
     final room = await getRoom(code);
     final state = room.gameState;
     if (state == null) return {'type': 'waiting'};
+    if (room.hostId == id) {
+      final recoveryResponse = await _client.get(_pathUri('rooms/${code.toUpperCase()}/private/hostState'));
+      if (recoveryResponse.statusCode != 200 || recoveryResponse.body == 'null') {
+        return {'type': 'hostRecoveryMissing', 'state': state};
+      }
+      return {'type': 'host', 'recovery': jsonDecode(recoveryResponse.body), 'state': state};
+    }
     final response = await _client.get(_pathUri('rooms/${code.toUpperCase()}/privateHands/$id'));
     final privateHand = response.statusCode == 200 && response.body != 'null' ? jsonDecode(response.body) : const [];
     return {'type': 'game', 'state': state, 'privateHand': privateHand};

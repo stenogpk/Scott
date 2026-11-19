@@ -321,7 +321,7 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
         initialMessage: message,
         onLeave: () async {
           final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('गेम छोड़ें?'), content: const Text('आप इस ऑनलाइन गेम से बाहर हो जाएँगे।'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('रुकें')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('गेम छोड़ें'))]));
-          if (confirmed == true) { await _service.leaveRoom(code); if (mounted) Navigator.of(context).pop(); }
+          if (confirmed == true) { try { await _service.leaveRoom(code); if (mounted) Navigator.of(context).pop(); } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', '')))); } }
         },
       )));
     }, onError: (Object error) {
@@ -354,7 +354,7 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
         roomPresence: _service.watchRoom(room.code),
         onLeave: () async {
           final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('गेम छोड़ें?'), content: const Text('आपका खिलाड़ी डिस्कनेक्ट हो जाएगा। Lobby में Host छोड़ता है तो Host दूसरे ऑनलाइन खिलाड़ी को दिया जाएगा।'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('रुकें')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('गेम छोड़ें'))]));
-          if (confirmed == true) { await _service.leaveRoom(room.code); if (mounted) Navigator.of(context).pop(); }
+          if (confirmed == true) { try { await _service.leaveRoom(room.code); if (mounted) Navigator.of(context).pop(); } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', '')))); } }
         },
       )));
     } catch (e) {

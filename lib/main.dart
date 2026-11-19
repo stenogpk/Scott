@@ -305,7 +305,7 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
 
   Future<void> _run(Future<RoomSnapshot> Function() task) async {
     setState(() { _busy = true; _error = null; });
-    try { final room = await task(); if (mounted) { setState(() { _room = room; _busy = false; }); _presenceTimer?.cancel(); _presenceTimer = Timer.periodic(const Duration(seconds: 10), (_) => unawaited(_service.updatePresence(room.code))); unawaited(_service.updatePresence(room.code)); if (room.hostId != _service.userId) _watchOnlineGame(room.code); } }
+    try { final room = await task(); if (mounted) { setState(() { _room = room; _busy = false; }); _presenceTimer?.cancel(); _presenceTimer = Timer.periodic(const Duration(seconds: 10), (_) async { await _service.updatePresence(room.code); await _service.claimHostIfStale(room.code); }); unawaited(_service.updatePresence(room.code)); if (room.hostId != _service.userId) _watchOnlineGame(room.code); } }
     catch (e) { if (mounted) setState(() { _error = e.toString().replaceFirst('Bad state: ', ''); _busy = false; }); }
   }
 

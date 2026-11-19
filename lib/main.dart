@@ -10,6 +10,7 @@ import 'network/local_room_server.dart';
 import 'network/room_models.dart';
 import 'game/scott_game_engine.dart';
 import 'screens/game_table_page.dart';
+import 'screens/scott_rules_page.dart';
 import 'network/game_state_codec.dart';
 import 'services/scott_audio.dart';
 
@@ -117,6 +118,7 @@ class _ProfileEditorPageState extends State<ProfileEditorPage> {
       const SizedBox(height: 12),
       DropdownButtonFormField<String>(value: _gender, decoration: const InputDecoration(labelText: 'Gender'), items: const [DropdownMenuItem(value: 'पुरुष', child: Text('पुरुष')), DropdownMenuItem(value: 'महिला', child: Text('महिला')), DropdownMenuItem(value: 'अन्य', child: Text('अन्य / बताना नहीं चाहते'))], onChanged: (v) { if (v != null) setState(() => _gender = v); }),
       const SizedBox(height: 22),
+      if (widget.firstRun) TextButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage())), icon: const Icon(Icons.menu_book_outlined), label: const Text('खेल के नियम / How to Play')),
       FilledButton.icon(onPressed: _saving ? null : _save, icon: const Icon(Icons.check_circle_outline), label: Text(_saving ? 'सेव हो रहा है…' : 'प्रोफाइल सेव करें')),
       if (!widget.firstRun) ...[
         const SizedBox(height: 18),
@@ -180,6 +182,8 @@ class _ScottHomePageState extends State<ScottHomePage> {
           _HomeModeCard(icon: Icons.public, title: 'Online Multiplayer', subtitle: 'दूर बैठे दोस्तों के साथ Room Code से खेलें', onTap: () => _open(context, OnlineRoomPage(playerName: _playerName))),
           const SizedBox(height: 12),
           _HomeModeCard(icon: Icons.wifi, title: 'Local Wi-Fi Multiplayer', subtitle: 'एक ही Wi-Fi / Hotspot पर, इंटरनेट के बिना', onTap: () => _open(context, LocalWifiPage(playerName: _playerName))),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage())), icon: const Icon(Icons.menu_book_outlined), label: const Text('खेल के नियम / How to Play')),
           const SizedBox(height: 18),
           const Text('खेल में 2–5 खिलाड़ी • 52 पत्ते • नौकी (9) शून्य अंक', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF607080))),
           const SizedBox(height: 14),
@@ -221,6 +225,7 @@ class _ScottSettingsPageState extends State<ScottSettingsPage> {
         const Text('Volume', style: TextStyle(fontWeight: FontWeight.w800)),
         Slider(value: audio.volume, min: 0, max: 1, divisions: 10, label: '${(audio.volume * 100).round()}%', onChanged: (value) => setState(() => audio.volume = value)),
         FilledButton.tonalIcon(onPressed: () => audio.play('tap'), icon: const Icon(Icons.volume_up), label: const Text('Test Sound')),
+        ListTile(leading: const Icon(Icons.menu_book_outlined), title: const Text('खेल के नियम / How to Play'), subtitle: const Text('हिंदी और English में पूरी नियमावली'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage()))),
         const Divider(height: 30),
         const ListTile(title: Text('Online Multiplayer'), subtitle: Text('Firebase Guest Authentication और Realtime Database')),
         const ListTile(title: Text('Local Wi-Fi'), subtitle: Text('एक ही Wi-Fi / Hotspot पर बिना इंटरनेट')),

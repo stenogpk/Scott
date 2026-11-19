@@ -27,6 +27,43 @@ class GameStateCodec {
     'revealHands': revealHands,
   };
 
+  static Map<String, dynamic> hostRecovery(GameState state, {List<Map<String, dynamic>> history = const [], String? commentary}) => {
+    'state': publicState(state, revealHands: true),
+    'drawPile': state.drawPile.map(cardToJson).toList(),
+    'history': history,
+    'commentary': commentary,
+  };
+
+  static GameState stateFromHostRecovery(Map<String, dynamic> recovery) {
+    final raw = Map<String, dynamic>.from(recovery['state'] as Map);
+    final players = (raw['players'] as List).map((value) {
+      final p = Map<String, dynamic>.from(value as Map);
+      final hand = (p['hand'] as List? ?? const []).map((card) => cardFromJson(Map<String, dynamic>.from(card as Map))).toList();
+      return PlayerState(
+        id: p['id'] as String,
+        name: p['name'] as String,
+        hand: hand,
+        score: p['score'] as int? ?? 0,
+        isEliminated: p['isEliminated'] as bool? ?? false,
+      );
+    }).toList();
+    final currentId = raw['currentPlayerId'] as String;
+    final currentIndex = players.indexWhere((p) => p.id == currentId);
+    if (currentIndex < 0) throw StateError('Host recovery में current player नहीं मिला।');
+    return GameState(
+      players: players,
+      drawPile: (recovery['drawPile'] as List).map((v) => cardFromJson(Map<String, dynamic>.from(v as Map))).toList(),
+      discardPile: (raw['discardPile'] as List? ?? const []).map((v) => cardFromJson(Map<String, dynamic>.from(v as Map))).toList(),
+      currentPlayerIndex: currentIndex,
+      targetScore: raw['targetScore'] as int,
+      phase: GamePhase.values.byName(raw['phase'] as String),
+      winnerId: raw['winnerId'] as String?,
+      lastDiscardPlayerId: raw['lastDiscardPlayerId'] as String?,
+      lastDiscardGroup: (raw['lastDiscardGroup'] as List? ?? const []).map((v) => cardFromJson(Map<String, dynamic>.from(v as Map))).toList(),
+      roundNumber: raw['roundNumber'] as int? ?? 1,
+    );
+  }
+
   static Map<String, List<Map<String, dynamic>>> privateHands(GameState state) => {
     for (final player in state.players)
       player.id: player.hand.map(cardToJson).toList(),

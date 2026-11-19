@@ -34,7 +34,8 @@ class FirebaseRoomService {
     await _ensureSignedIn();
     final code = _newRoomCode();
     final hostId = _userId!;
-    final player = RoomPlayer(id: hostId, name: playerName.trim(), isHost: true);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final player = RoomPlayer(id: hostId, name: playerName.trim(), isHost: true, lastSeenAt: now, lastActionAt: now);
     await _putPath('rooms/$code/public/hostId', jsonEncode(hostId));
     await _putPath('rooms/$code/public/code', jsonEncode(code));
     await _putPath('rooms/$code/public/targetScore', jsonEncode(targetScore));
@@ -50,7 +51,8 @@ class FirebaseRoomService {
     if (room.started) throw StateError('यह गेम शुरू हो चुका है।');
     if (room.players.length >= 5) throw StateError('कमरा भर चुका है।');
     if (room.players.any((p) => p.id == _userId)) return room;
-    final player = RoomPlayer(id: _userId!, name: playerName.trim());
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final player = RoomPlayer(id: _userId!, name: playerName.trim(), lastSeenAt: now, lastActionAt: now);
     // A joining guest may add only their own player record. updatedAt is
     // host-owned in the database rules, so writing it here caused every join
     // to fail with PERMISSION_DENIED after the player record was created.
@@ -69,8 +71,17 @@ class FirebaseRoomService {
 
   Future<void> publishGameState(String code, Map<String, dynamic> publicState, Map<String, List<Map<String, dynamic>>> privateHands) async {
     await _ensureSignedIn();
+    final recovery = publicState.remove('_hostRecovery');
     final room = await getRoom(code);
     if (room.hostId != _userId) throw StateError('Only the room host can publish the game state.');
+    if (recovery is Map) {
+      await _putPath('rooms/${room.code}/hostState', jsonEncode(Map<String, dynamic>.from(recovery)));
+    }
+    final hostPlayer = room.players.where((p) => p.id == _userId).toList();
+    if (hostPlayer.isNotEmpty) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await _putPath('rooms/${room.code}/public/players/${_userId!}', jsonEncode({...hostPlayer.first.toJson(), 'lastSeenAt': now, 'lastActionAt': now, 'isConnected': true, 'leftAt': 0}));
+    }
     for (final entry in privateHands.entries) {
       await _putPath('rooms/${room.code}/privateHands/${entry.key}', jsonEncode(entry.value));
     }
@@ -79,9 +90,71 @@ class FirebaseRoomService {
     await _putPath('rooms/${room.code}/public/updatedAt', jsonEncode(DateTime.now().millisecondsSinceEpoch));
   }
 
+  Future<void> updatePresence(String code, {bool active = true, bool userAction = false}) async {
+    await _ensureSignedIn();
+    final id = _userId!;
+    final room = await getRoom(code);
+    final matches = room.players.where((p) => p.id == id).toList();
+    if (matches.isEmpty) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final current = matches.first;
+    await _putPath('rooms/${room.code}/public/players/$id', jsonEncode({
+      ...current.toJson(), 'isConnected': active, 'lastSeenAt': now,
+      'lastActionAt': userAction ? now : current.lastActionAt, 'leftAt': active ? 0 : now,
+    }));
+  }
+
+  Future<void> transferHost(String code, String newHostId) async {
+    await _ensureSignedIn();
+    final room = await getRoom(code);
+    if (room.hostId != _userId) throw StateError('केवल वर्तमान Host ही Host बदल सकता है।');
+    if (!room.players.any((p) => p.id == newHostId && p.isConnected && p.leftAt == 0)) {
+      throw StateError('नया Host ऑनलाइन खिलाड़ी होना चाहिए।');
+    }
+    await _putPath('rooms/${room.code}/public/hostId', jsonEncode(newHostId));
+    for (final player in room.players) {
+      await _putPath('rooms/${room.code}/public/players/${player.id}', jsonEncode({...player.toJson(), 'isHost': player.id == newHostId}));
+    }
+  }
+
+  Future<bool> claimHostIfStale(String code) async {
+    await _ensureSignedIn();
+    final room = await getRoom(code);
+    if (room.hostId == _userId) return false;
+    final currentHost = room.players.where((p) => p.id == room.hostId).toList();
+    if (currentHost.isNotEmpty) {
+      final lastSeen = currentHost.first.lastSeenAt;
+      if (lastSeen > 0 && DateTime.now().millisecondsSinceEpoch - lastSeen <= const Duration(seconds: 20).inMilliseconds) return false;
+    }
+    final me = room.players.where((p) => p.id == _userId && p.isConnected && p.leftAt == 0).toList();
+    if (me.isEmpty) return false;
+    // The database rule performs the stale-host check again at write time.
+    // This prevents two clients that noticed the timeout together from both
+    // taking over: only the first hostId write can pass the rule.
+    await _putPath('rooms/${room.code}/public/hostId', jsonEncode(_userId));
+    final refreshed = await getRoom(room.code);
+    for (final player in refreshed.players) {
+      await _putPath('rooms/${room.code}/public/players/${player.id}', jsonEncode({...player.toJson(), 'isHost': player.id == _userId}));
+    }
+    return true;
+  }
+
+  Future<void> leaveRoom(String code) async {
+    await _ensureSignedIn();
+    final room = await getRoom(code);
+    final id = _userId!;
+    if (room.hostId == id && room.started) {
+      throw StateError('चल रहे गेम में Host को अभी सुरक्षित रूप से ट्रांसफर नहीं किया जा सकता। गेम पूरा होने तक Host ऐप खुला रखें।');
+    }
+    final alternatives = room.players.where((p) => p.id != id && p.isConnected && p.leftAt == 0).toList();
+    if (room.hostId == id && alternatives.isNotEmpty && !room.started) await transferHost(code, alternatives.first.id);
+    await updatePresence(code, active: false);
+  }
+
   Future<void> sendAction(String code, Map<String, dynamic> action) async {
     await _ensureSignedIn();
     final id = _userId!;
+    await updatePresence(code, userAction: true);
     await _putPath('rooms/${code.toUpperCase()}/actions/$id', jsonEncode({
       'playerId': id,
       'action': action,
@@ -125,6 +198,13 @@ class FirebaseRoomService {
     final room = await getRoom(code);
     final state = room.gameState;
     if (state == null) return {'type': 'waiting'};
+    if (room.hostId == id) {
+      final recoveryResponse = await _client.get(_pathUri('rooms/${code.toUpperCase()}/hostState'));
+      if (recoveryResponse.statusCode != 200 || recoveryResponse.body == 'null') {
+        return {'type': 'hostRecoveryMissing', 'state': state};
+      }
+      return {'type': 'host', 'recovery': jsonDecode(recoveryResponse.body), 'state': state};
+    }
     final response = await _client.get(_pathUri('rooms/${code.toUpperCase()}/privateHands/$id'));
     final privateHand = response.statusCode == 200 && response.body != 'null' ? jsonDecode(response.body) : const [];
     return {'type': 'game', 'state': state, 'privateHand': privateHand};

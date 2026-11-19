@@ -22,6 +22,10 @@ class ScottWebApp extends StatelessWidget {
     title: 'SCOTT Online',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(useMaterial3: true, colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF16A6A1)), scaffoldBackgroundColor: const Color(0xFFF3F6F8)),
+    builder: (context, child) => Stack(children: [
+      child ?? const SizedBox.shrink(),
+      const Positioned(right: 10, bottom: 6, child: IgnorePointer(child: Text('Developed by Shartendu', style: TextStyle(fontSize: 9, color: Color(0x8871808C), fontWeight: FontWeight.w700)))),
+    ]),
     home: const ScottWebHome(),
   );
 }

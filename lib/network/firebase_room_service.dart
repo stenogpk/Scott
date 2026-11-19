@@ -73,6 +73,11 @@ class FirebaseRoomService {
     await _ensureSignedIn();
     final room = await getRoom(code);
     if (room.hostId != _userId) throw StateError('Only the room host can publish the game state.');
+    final hostPlayer = room.players.where((p) => p.id == _userId).toList();
+    if (hostPlayer.isNotEmpty) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await _putPath('rooms/${room.code}/public/players/${_userId!}', jsonEncode({...hostPlayer.first.toJson(), 'lastSeenAt': now, 'lastActionAt': now, 'isConnected': true, 'leftAt': 0}));
+    }
     for (final entry in privateHands.entries) {
       await _putPath('rooms/${room.code}/privateHands/${entry.key}', jsonEncode(entry.value));
     }
@@ -120,6 +125,7 @@ class FirebaseRoomService {
   Future<void> sendAction(String code, Map<String, dynamic> action) async {
     await _ensureSignedIn();
     final id = _userId!;
+    await updatePresence(code, userAction: true);
     await _putPath('rooms/${code.toUpperCase()}/actions/$id', jsonEncode({
       'playerId': id,
       'action': action,

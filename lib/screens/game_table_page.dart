@@ -53,8 +53,13 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     unawaited(_publish());
     _actionsSub = widget.actions.listen((event) => _handleRemoteAction(event.playerId, event.action));
     if (widget.roomPresence != null) {
-      _presenceSub = widget.roomPresence!.listen((room) { _latestRoom = room; });
-      _afkTimer = Timer.periodic(const Duration(seconds: 2), (_) => _checkInactiveTurn());
+      _presenceSub = widget.roomPresence!.listen((room) {
+        if (mounted) setState(() => _latestRoom = room);
+      });
+      _afkTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+        if (mounted) setState(() {});
+        _checkInactiveTurn();
+      });
     }
   }
 
@@ -346,6 +351,26 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     child: Text(myTurn ? 'आपकी बारी है — SHOW करें या पत्ते बदलें.' : isDisconnected ? '$name का कनेक्शन टूट गया है। वापस जुड़ने के लिए 60 सेकंड का समय है।' : '$name की बारी है।', style: const TextStyle(fontWeight: FontWeight.w800)),
   );
 
+  Widget _playerStatusIndicator(PlayerState player) {
+    final roomPlayers = _latestRoom?.players.where((item) => item.id == player.id).toList() ?? const <RoomPlayer>[];
+    if (roomPlayers.isEmpty) return const SizedBox.shrink();
+    final presence = roomPlayers.first;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final isLeft = presence.leftAt > 0;
+    final isStale = presence.lastSeenAt > 0 && now - presence.lastSeenAt >= const Duration(seconds: 80).inMilliseconds;
+    final isDisconnected = !presence.isConnected || isStale;
+    final isAfk = !isDisconnected && presence.leftAt == 0 && presence.lastActionAt > 0 &&
+        now - presence.lastActionAt >= const Duration(seconds: 60).inMilliseconds;
+    final label = isLeft ? 'Left' : isDisconnected ? 'Disconnected' : isAfk ? 'AFK' : 'Online';
+    final color = isLeft ? const Color(0xFF9CA3AF) : isDisconnected ? const Color(0xFFDC2626) :
+        isAfk ? const Color(0xFFB88952) : const Color(0xFF16A34A);
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      Container(width: 7, height: 7, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+      const SizedBox(width: 4),
+      Text(label, style: TextStyle(color: color, fontSize: 10, fontStyle: FontStyle.italic, fontWeight: FontWeight.w700)),
+    ]);
+  }
+
   Widget _opponents() => Wrap(
     spacing: 8, runSpacing: 8,
     children: [
@@ -358,7 +383,12 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
             border: Border.all(color: p.id == _state.currentPlayer.id && _state.phase == GamePhase.waitingForTurn ? const Color(0xFF16A6A1) : const Color(0xFFE0E7EC), width: p.id == _state.currentPlayer.id && _state.phase == GamePhase.waitingForTurn ? 2 : 1),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+            Row(
+              children: [
+                Expanded(child: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800))),
+                if (_latestRoom != null) _playerStatusIndicator(p),
+              ],
+            ),
             Text('स्कोर: ${p.score}', style: const TextStyle(fontSize: 12)),
             if (p.isEliminated) const Text('ससम्मान बाहेर 😂', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.w800)),
             if (_state.phase == GamePhase.waitingForTurn)

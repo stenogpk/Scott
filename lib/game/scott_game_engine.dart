@@ -229,6 +229,15 @@ class ScottGameEngine {
     return state.copyWith(currentPlayerIndex: nextIndex);
   }
 
+  GameState eliminateForPresence(GameState state, String playerId) {
+    if (state.playerById(playerId) == null || state.playerById(playerId)!.isEliminated) return state;
+    final updated = state.players.map((p) => p.id == playerId ? p.copyWith(isEliminated: true, hand: const <PlayingCard>[]) : p).toList();
+    final remaining = updated.where((p) => !p.isEliminated).toList();
+    if (remaining.length <= 1) return state.copyWith(players: updated, phase: GamePhase.gameComplete, winnerId: remaining.isEmpty ? null : remaining.single.id);
+    final temp = state.copyWith(players: updated);
+    return state.copyWith(players: updated, currentPlayerIndex: _nextActivePlayerIndex(temp, state.currentPlayerIndex));
+  }
+
   void _ensureActiveTurn(GameState state, String playerId) {
     if (state.phase != GamePhase.waitingForTurn) throw StateError('The round is not accepting turns.');
     if (state.currentPlayer.id != playerId) throw StateError('It is not this player\'s turn.');

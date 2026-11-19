@@ -134,6 +134,7 @@ class _ScottWebHomeState extends State<ScottWebHome> {
           Text('Room Code: ${_room!.code}',style:const TextStyle(fontSize:24,fontWeight:FontWeight.w900),textAlign:TextAlign.center),
           const SizedBox(height:8),Text('Target: ${_room!.targetScore} • खिलाड़ी ${_room!.players.length}/5',textAlign:TextAlign.center),
           const SizedBox(height:8),for(final p in _room!.players) ListTile(leading:Icon(p.isHost?Icons.star:Icons.person),title:Text(p.name),subtitle:p.isHost?const Text('Host'):null),
+          OutlinedButton.icon(onPressed:_busy?null:() async { final confirmed = await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:const Text('कमरा छोड़ें?'),content:const Text('अगर आप Host हैं तो कमरे का Host अगले ऑनलाइन खिलाड़ी को दिया जाएगा।'),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('रुकें')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('कमरा छोड़ें'))])); if(confirmed==true){await _service.leaveRoom(_room!.code);_presenceTimer?.cancel();if(mounted)setState(()=>_room=null);} },icon:const Icon(Icons.exit_to_app),label:const Text('कमरा छोड़ें')),
           if(_room!.hostId==_service.userId)FilledButton.icon(onPressed:_busy||_room!.players.length<2?null:_start,icon:const Icon(Icons.play_arrow),label:const Text('Game Start')),
           OutlinedButton.icon(onPressed:_copyInvite,icon:const Icon(Icons.share),label:const Text('Invite Link Copy करें')),
           SelectableText(_inviteLink,textAlign:TextAlign.center),

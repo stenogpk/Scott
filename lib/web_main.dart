@@ -82,6 +82,10 @@ class _ScottWebHomeState extends State<ScottWebHome> {
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => RemoteGameTablePage(
         messages: _service.watchGame(code), sendAction: (a) => unawaited(_service.sendAction(code, a)),
         playerId: _service.userId!, initialMessage: m,
+        onLeave: () async {
+          final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('गेम छोड़ें?'), content: const Text('आप इस ऑनलाइन गेम से बाहर हो जाएँगे।'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('रुकें')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('गेम छोड़ें'))]));
+          if (confirmed == true) { await _service.leaveRoom(code); if (mounted) Navigator.of(context).pop(); }
+        },
       )));
     }, onError: (e) { if (mounted) setState(() => _error = e.toString()); });
   }

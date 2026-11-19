@@ -83,7 +83,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     if (seenAt <= 0) return;
     final disconnectedSince = current.leftAt > 0 ? current.leftAt : seenAt;
     final disconnectedFor = now.millisecondsSinceEpoch - disconnectedSince;
-    final disconnectedExpired = !current.isConnected && disconnectedFor >= const Duration(seconds: 80).inMilliseconds || current.isConnected && now.millisecondsSinceEpoch - seenAt >= const Duration(seconds: 80).inMilliseconds;
+    final disconnectedExpired = !current.isConnected && disconnectedFor >= const Duration(seconds: 25).inMilliseconds || current.isConnected && now.millisecondsSinceEpoch - seenAt >= const Duration(seconds: 25).inMilliseconds;
     final afkExpired = current.isConnected && current.leftAt == 0 && now.difference(_turnStartedAt) >= const Duration(seconds: 60);
     if (!disconnectedExpired && !afkExpired) return;
     final skippedName = _state.currentPlayer.name;

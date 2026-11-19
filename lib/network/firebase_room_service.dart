@@ -165,7 +165,16 @@ class FirebaseRoomService {
   Stream<RoomSnapshot> watchRoom(String code, {Duration interval = const Duration(seconds: 2)}) async* {
     await _ensureSignedIn();
     yield await getRoom(code);
-    yield* Stream.periodic(interval).asyncMap((_) => getRoom(code));
+    // Keep polling alive across temporary network failures; a transient
+    // outage must not permanently terminate the room-presence stream.
+    while (true) {
+      await Future<void>.delayed(interval);
+      try {
+        yield await getRoom(code);
+      } catch (_) {
+        // Resume automatically on the next successful poll.
+      }
+    }
   }
 
   Stream<List<Map<String, dynamic>>> watchActions(String code, {Duration interval = const Duration(milliseconds: 800)}) async* {

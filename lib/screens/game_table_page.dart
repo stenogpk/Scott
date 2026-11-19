@@ -248,6 +248,8 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     final current = _state.currentPlayer;
     final isMyTurn = current.id == widget.hostId && _state.phase == GamePhase.waitingForTurn;
     final isFinished = _state.phase == GamePhase.gameComplete;
+    final currentPresence = _latestRoom?.players.where((p) => p.id == current.id).toList() ?? const <RoomPlayer>[];
+    final isDisconnected = currentPresence.isNotEmpty && currentPresence.first.lastSeenAt > 0 && DateTime.now().millisecondsSinceEpoch - currentPresence.first.lastSeenAt > const Duration(seconds: 20).inMilliseconds;
     return Scaffold(
       appBar: AppBar(title: Text(isFinished ? 'विजेता' : 'SCOTT • राउंड ${_state.roundNumber}'), actions: [
         if (widget.onLeave != null) IconButton(tooltip: 'गेम छोड़ें', onPressed: widget.onLeave, icon: const Icon(Icons.exit_to_app)),
@@ -258,7 +260,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
         _scoreStrip(),
         if (_commentaryText != null) _commentaryBanner(_commentaryText!),
         Expanded(child: ListView(padding: const EdgeInsets.all(14), children: [
-          if (isFinished) _winnerPanel() else if (_state.phase == GamePhase.roundComplete) _roundResultPanel() else _turnBanner(current.name, isMyTurn),
+          if (isFinished) _winnerPanel() else if (_state.phase == GamePhase.roundComplete) _roundResultPanel() else _turnBanner(current.name, isMyTurn, isDisconnected: isDisconnected),
           const SizedBox(height: 12),
           _opponents(),
           const SizedBox(height: 16),
@@ -331,10 +333,10 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     ),
   );
 
-  Widget _turnBanner(String name, bool myTurn) => Container(
+  Widget _turnBanner(String name, bool myTurn, {bool isDisconnected = false}) => Container(
     padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: myTurn ? const Color(0xFFE0F4EF) : const Color(0xFFFFF3DB), borderRadius: BorderRadius.circular(14)),
-    child: Text(myTurn ? 'आपकी बारी है — SHOW करें या पत्ते बदलें।' : '$name की बारी है।', style: const TextStyle(fontWeight: FontWeight.w800)),
+    decoration: BoxDecoration(color: myTurn ? const Color(0xFFE0F4EF) : isDisconnected ? const Color(0xFFFFE3E3) : const Color(0xFFFFF3DB), borderRadius: BorderRadius.circular(14)),
+    child: Text(myTurn ? 'आपकी बारी है — SHOW करें या पत्ते बदलें.' : isDisconnected ? '$name का कनेक्शन टूट गया है। वापस जुड़ने के लिए 60 सेकंड का समय है।' : '$name की बारी है।', style: const TextStyle(fontWeight: FontWeight.w800)),
   );
 
   Widget _opponents() => Wrap(

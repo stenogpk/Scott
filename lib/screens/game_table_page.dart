@@ -458,11 +458,12 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
 }
 
 class RemoteGameTablePage extends StatefulWidget {
-  const RemoteGameTablePage({super.key, required this.messages, required this.sendAction, required this.playerId, required this.initialMessage});
+  const RemoteGameTablePage({super.key, required this.messages, required this.sendAction, required this.playerId, required this.initialMessage, this.onLeave});
   final Stream<Map<String, dynamic>> messages;
   final void Function(Map<String, dynamic>) sendAction;
   final String playerId;
   final Map<String, dynamic> initialMessage;
+  final Future<void> Function()? onLeave;
   @override
   State<RemoteGameTablePage> createState() => _RemoteGameTablePageState();
 }
@@ -613,6 +614,7 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
       appBar: AppBar(
         title: Text(phase == GamePhase.gameComplete.name ? 'विजेता' : 'SCOTT • राउंड ${_public['roundNumber']}'),
         actions: [
+          if (widget.onLeave != null) IconButton(tooltip: 'गेम छोड़ें', onPressed: widget.onLeave, icon: const Icon(Icons.exit_to_app)),
           IconButton(tooltip: 'खेल के नियम / How to Play', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage())), icon: const Icon(Icons.menu_book_outlined)),
           IconButton(tooltip: 'Scoreboard', onPressed: _scoreboard, icon: const Icon(Icons.leaderboard_outlined)),
         ],

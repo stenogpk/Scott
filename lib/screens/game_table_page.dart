@@ -98,6 +98,11 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     final publicState = GameStateCodec.publicState(_state, revealHands: _state.phase != GamePhase.waitingForTurn);
     publicState['history'] = List<Map<String, dynamic>>.from(_history);
     publicState['commentary'] = _commentaryText;
+    publicState['_hostRecovery'] = GameStateCodec.hostRecovery(
+      _state,
+      history: List<Map<String, dynamic>>.from(_history),
+      commentary: _commentaryText,
+    );
     if (_result != null) {
       publicState['roundResult'] = {
         'callerId': _result!.callerId, 'successful': _result!.wasSuccessful,

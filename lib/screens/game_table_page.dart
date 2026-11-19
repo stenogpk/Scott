@@ -602,7 +602,7 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('${p['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
                 Text('स्कोर: ${p['score']}', style: const TextStyle(fontSize: 12)),
-                if (p['isEliminated'] == true) const Text('ससम्मान बाहેર 😂', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.w800)),
+                if (p['isEliminated'] == true) const Text('ससम्मान बाहेर 😂', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.w800)),
                 if (reveal) ...[
                   Text('हाथ का जोड़: ${p['handTotal']}', style: const TextStyle(fontWeight: FontWeight.w700)),
                   Wrap(spacing: 3, runSpacing: 2, children: (p['hand'] as List? ?? const []).map((raw) {

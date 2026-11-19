@@ -38,6 +38,8 @@ jobs:
         run: flutter analyze
       - name: Test
         run: flutter test
+      - name: Build Web
+        run: flutter build web --target lib/web_main.dart --release --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --dart-define=FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}
       - name: Build release APK
         if: github.event_name != 'pull_request'
         run: flutter build apk --release --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --dart-define=FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}

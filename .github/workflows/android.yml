@@ -42,11 +42,16 @@ jobs:
         run: flutter create . --platforms web
       - name: Build Web
         run: flutter build web --target lib/web_main.dart --release --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --dart-define=FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}
+      - name: Upload Web build
+        uses: actions/upload-artifact@v4
+        with:
+          name: SCOTT-web-preview
+          path: build/web/
+          if-no-files-found: error
+          retention-days: 14
       - name: Build release APK
-        if: github.event_name != 'pull_request'
         run: flutter build apk --release --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --dart-define=FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}
       - name: Upload APK
-        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: SCOTT-final-release-apk

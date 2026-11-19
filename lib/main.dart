@@ -279,6 +279,7 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
   bool _busy = false;
   String? _error;
   StreamSubscription<Map<String, dynamic>>? _gameSub;
+  Timer? _presenceTimer;
   bool _gameOpened = false;
   int _target = 150;
   bool _customTarget = false;
@@ -287,7 +288,7 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
   @override
   void initState() { super.initState(); _service = FirebaseRoomService(apiKey: firebaseApiKey, databaseUrl: firebaseDatabaseUrl); }
   @override
-  void dispose() { _code.dispose(); _customTargetController.dispose(); unawaited(_gameSub?.cancel()); unawaited(_service.dispose()); super.dispose(); }
+  void dispose() { _presenceTimer?.cancel(); _code.dispose(); _customTargetController.dispose(); unawaited(_gameSub?.cancel()); unawaited(_service.dispose()); super.dispose(); }
 
   int? get _effectiveTarget => _customTarget
       ? int.tryParse(_customTargetController.text.trim())
@@ -304,7 +305,7 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
 
   Future<void> _run(Future<RoomSnapshot> Function() task) async {
     setState(() { _busy = true; _error = null; });
-    try { final room = await task(); if (mounted) { setState(() { _room = room; _busy = false; }); if (room.hostId != _service.userId) _watchOnlineGame(room.code); } }
+    try { final room = await task(); if (mounted) { setState(() { _room = room; _busy = false; }); _presenceTimer?.cancel(); _presenceTimer = Timer.periodic(const Duration(seconds: 10), (_) => unawaited(_service.updatePresence(room.code))); unawaited(_service.updatePresence(room.code)); if (room.hostId != _service.userId) _watchOnlineGame(room.code); } }
     catch (e) { if (mounted) setState(() { _error = e.toString().replaceFirst('Bad state: ', ''); _busy = false; }); }
   }
 

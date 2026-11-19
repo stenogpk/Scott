@@ -53,8 +53,13 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     unawaited(_publish());
     _actionsSub = widget.actions.listen((event) => _handleRemoteAction(event.playerId, event.action));
     if (widget.roomPresence != null) {
-      _presenceSub = widget.roomPresence!.listen((room) { _latestRoom = room; });
-      _afkTimer = Timer.periodic(const Duration(seconds: 2), (_) => _checkInactiveTurn());
+      _presenceSub = widget.roomPresence!.listen((room) {
+        if (mounted) setState(() => _latestRoom = room);
+      });
+      _afkTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+        if (mounted) setState(() {});
+        _checkInactiveTurn();
+      });
     }
   }
 
@@ -346,13 +351,13 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     child: Text(myTurn ? 'आपकी बारी है — SHOW करें या पत्ते बदलें.' : isDisconnected ? '$name का कनेक्शन टूट गया है। वापस जुड़ने के लिए 60 सेकंड का समय है।' : '$name की बारी है।', style: const TextStyle(fontWeight: FontWeight.w800)),
   );
 
-  Widget _playerStatusIndicator(GamePlayer player) {
+  Widget _playerStatusIndicator(PlayerState player) {
     final roomPlayers = _latestRoom?.players.where((item) => item.id == player.id).toList() ?? const <RoomPlayer>[];
     if (roomPlayers.isEmpty) return const SizedBox.shrink();
     final presence = roomPlayers.first;
     final now = DateTime.now().millisecondsSinceEpoch;
     final isLeft = presence.leftAt > 0;
-    final isStale = presence.lastSeenAt > 0 && now - presence.lastSeenAt >= const Duration(seconds: 20).inMilliseconds;
+    final isStale = presence.lastSeenAt > 0 && now - presence.lastSeenAt >= const Duration(seconds: 80).inMilliseconds;
     final isDisconnected = !presence.isConnected || isStale;
     final isAfk = !isDisconnected && presence.leftAt == 0 && presence.lastActionAt > 0 &&
         now - presence.lastActionAt >= const Duration(seconds: 60).inMilliseconds;

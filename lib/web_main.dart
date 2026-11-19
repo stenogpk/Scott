@@ -48,6 +48,7 @@ class _ScottWebHomeState extends State<ScottWebHome> {
   StreamSubscription<Map<String,dynamic>>? _gameSub;
   Timer? _presenceTimer;
   bool _opened = false;
+  bool _hostPromoted = false;
 
   @override
   void dispose() { _presenceTimer?.cancel(); _name.dispose(); _code.dispose(); unawaited(_gameSub?.cancel()); unawaited(_service.dispose()); super.dispose(); }
@@ -77,7 +78,38 @@ class _ScottWebHomeState extends State<ScottWebHome> {
   void _watchGame(String code) {
     _gameSub?.cancel();
     _gameSub = _service.watchGame(code).listen((m) {
-      if (!mounted || _opened || m['type'] != 'game') return;
+      if (!mounted) return;
+      if (m['type'] == 'host' && !_hostPromoted) {
+        _hostPromoted = true;
+        _opened = true;
+        final recovery = Map<String, dynamic>.from(m['recovery'] as Map);
+        final engine = ScottGameEngine();
+        final state = GameStateCodec.stateFromHostRecovery(recovery);
+        final actions = _service.watchActions(code).asyncExpand((items) => Stream<RoomAction>.fromIterable(items.map((i) => (playerId:i['playerId'] as String, action:Map<String,dynamic>.from(i['action'] as Map)))));
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => HostGameTablePage(
+          engine: engine,
+          initialState: state,
+          initialHistory: (recovery['history'] as List? ?? const []).map((v) => Map<String, dynamic>.from(v as Map)).toList(),
+          hostId: _service.userId!,
+          actions: actions,
+          publish: (publicState, privateHands) => _service.publishGameState(code, publicState, privateHands),
+          sendToPlayer: (_, __) {},
+          roomPresence: _service.watchRoom(code),
+          onLeave: () async {
+            final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+              title: const Text('गेम छोड़ें?'),
+              content: const Text('आप Host हैं। गेम छोड़ने पर अगला ऑनलाइन खिलाड़ी Host बनेगा।'),
+              actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('रुकें')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('गेम छोड़ें'))],
+            ));
+            if (confirmed == true) {
+              try { await _service.leaveRoom(code); if (mounted) Navigator.of(context).pop(); }
+              catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', '')))); }
+            }
+          },
+        )));
+        return;
+      }
+      if (_opened || m['type'] != 'game') return;
       _opened = true;
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => RemoteGameTablePage(
         messages: _service.watchGame(code), sendAction: (a) => unawaited(_service.sendAction(code, a)),

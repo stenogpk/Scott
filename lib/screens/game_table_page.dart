@@ -56,6 +56,14 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     final publicState = GameStateCodec.publicState(_state, revealHands: _state.phase != GamePhase.waitingForTurn);
     publicState['history'] = List<Map<String, dynamic>>.from(_history);
     publicState['commentary'] = _commentaryText;
+    if (_result != null) {
+      publicState['roundResult'] = {
+        'callerId': _result!.callerId, 'successful': _result!.wasSuccessful,
+        'automatic': _result!.wasAutomatic, 'handTotals': _result!.handTotals,
+        'pointsAdded': _result!.pointsAdded, 'eliminatedPlayerIds': _result!.eliminatedPlayerIds,
+        'winnerId': _result!.winnerId,
+      };
+    } else { publicState.remove('roundResult'); }
     return widget.publish(publicState, GameStateCodec.privateHands(_state));
   }
 
@@ -319,9 +327,9 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
       const Text('DISCARD', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
       const SizedBox(height: 6),
       if (_state.discardPile.isEmpty) Container(width: 58, height: 82, decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(8)))
-      else SizedBox(width: 100, height: 90, child: Stack(clipBehavior: Clip.none, children: [
+      else SizedBox(width: 112, height: 90, child: Stack(clipBehavior: Clip.none, children: [
         for (var i = 0; i < _state.lastDiscardGroup.length; i++)
-          Positioned(left: i * 9.0, top: i.isEven ? 0 : 5, child: _PlayingCardTile(card: _state.lastDiscardGroup[i], selected: false, enabled: false, onTap: () {})),
+          Positioned(left: i * 20.0, top: i.isEven ? 0 : 5, child: _PlayingCardTile(card: _state.lastDiscardGroup[i], selected: false, enabled: false, onTap: () {})),
       ])),
     ]),
   ]);
@@ -469,6 +477,30 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
   @override
   void dispose() { unawaited(_sub?.cancel()); _commentaryTimer?.cancel(); super.dispose(); }
 
+  Widget _remoteRoundResultPanel(List<Map> players) {
+    final result = Map<String, dynamic>.from((_public['roundResult'] as Map?) ?? const {});
+    final callerId = result['callerId']?.toString();
+    final caller = players.where((p) => p['id']?.toString() == callerId).toList();
+    final successful = result['successful'] == true;
+    final totals = Map<String, dynamic>.from((result['handTotals'] as Map?) ?? const {});
+    final added = Map<String, dynamic>.from((result['pointsAdded'] as Map?) ?? const {});
+    return Card(
+      color: successful ? const Color(0xFFEAF5EE) : const Color(0xFFFFE9EC),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('कॉलर ${caller.isEmpty ? '—' : caller.first['name']} — SHOW ${successful ? 'सफल!' : 'असफल!'}',
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 21)),
+          const SizedBox(height: 8),
+          for (final p in players)
+            Text('${p['name']}: हाथ ${totals[p['id']?.toString()] ?? p['handTotal'] ?? 0} • इस राउंड +${added[p['id']?.toString()] ?? 0} • कुल ${p['score']}'),
+          const SizedBox(height: 8),
+          const Text('अगले राउंड के लिए Host की प्रतीक्षा करें।', style: TextStyle(color: Color(0xFF52616B), fontWeight: FontWeight.w600)),
+        ]),
+      ),
+    );
+  }
+
   void _scoreboard() {
     final players = (_public['players'] as List).cast<Map>();
     final names = {for (final player in players) player['id'].toString(): player['name'].toString()};
@@ -533,39 +565,55 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
     final matches = players.cast<Map>().where((p) => p['id'] == me).toList();
     final myPlayer = matches.isEmpty ? null : matches.first;
     return Scaffold(
-      appBar: AppBar(title: Text(phase == GamePhase.gameComplete.name ? 'विजेता' : 'SCOTT • राउंड ${_public['roundNumber']}')),
+      appBar: AppBar(
+        title: Text(phase == GamePhase.gameComplete.name ? 'विजेता' : 'SCOTT • राउंड ${_public['roundNumber']}'),
+        actions: [IconButton(tooltip: 'Scoreboard', onPressed: _scoreboard, icon: const Icon(Icons.leaderboard_outlined))],
+      ),
       body: SafeArea(child: ListView(padding: const EdgeInsets.all(14), children: [
-        Text('लक्ष्य: ${_public['targetScore']} • Draw pile: ${_public['drawPileCount']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-        const SizedBox(height: 10),
-        for (final p in players)
-          Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: p['id'] == currentId
-                    ? const [Color(0xFFD9F7EF), Color(0xFFBCE8DE)]
-                    : p['isEliminated'] == true
-                        ? const [Color(0xFFFFE2E2), Color(0xFFFFF0F0)]
-                        : const [Colors.white, Color(0xFFEAF1FF)],
-              ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: p['id'] == currentId ? const Color(0xFF16A6A1) : const Color(0xFFD5DFEA), width: p['id'] == currentId ? 2 : 1),
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Expanded(child: Text('${p['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900))),
-                Text('स्कोर: ${p['score']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                if (p['isEliminated'] == true) const Padding(padding: EdgeInsets.only(left: 6), child: Text('OUT 😂', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w900))),
-              ]),
-              const SizedBox(height: 7),
-              if (reveal) ...[
-                Text('हाथ का जोड़: ${p['handTotal']}', style: const TextStyle(fontWeight: FontWeight.w800)),
-                Wrap(spacing: 5, runSpacing: 5, children: ((p['hand'] as List? ?? const []).map((card) => Text('${card['rank']}/${card['suit']}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 12))).toList())),
-              ] else
-                Row(children: List.generate((p['handCount'] as int? ?? 0), (_) => const Padding(padding: EdgeInsets.only(right: 3), child: _CardBack()))),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: const BoxDecoration(color: Color(0xFFE6F0F2)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('लक्ष्य: ${_public['targetScore']} अंक  •  ${players.where((p) => p['isEliminated'] != true).length} खिलाड़ी बाकी', style: const TextStyle(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 5),
+            Wrap(spacing: 6, runSpacing: 4, children: [
+              for (final p in players)
+                Chip(visualDensity: VisualDensity.compact, materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  backgroundColor: p['isEliminated'] == true ? const Color(0xFFFFDCDC) : Colors.white,
+                  label: Text('${p['name']}: ${p['score']}${p['isEliminated'] == true ? ' • OUT' : ''}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700))),
             ]),
-          ),
+          ]),
+        ),
+        const SizedBox(height: 10),
+        if (phase == GamePhase.roundComplete.name) _remoteRoundResultPanel(players),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final p in players)
+            Container(
+              width: 145, padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: p['isEliminated'] == true ? const Color(0xFFFFE6E6)
+                    : (p['id'] == currentId && phase == GamePhase.waitingForTurn.name) ? const Color(0xFFE0F4EF) : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: p['id'] == currentId && phase == GamePhase.waitingForTurn.name ? const Color(0xFF16A6A1) : const Color(0xFFE0E7EC),
+                  width: p['id'] == currentId && phase == GamePhase.waitingForTurn.name ? 2 : 1),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('${p['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text('स्कोर: ${p['score']}', style: const TextStyle(fontSize: 12)),
+                if (p['isEliminated'] == true) const Text('ससम्मान बाहેર 😂', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.w800)),
+                if (reveal) ...[
+                  Text('हाथ का जोड़: ${p['handTotal']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                  Wrap(spacing: 3, runSpacing: 2, children: (p['hand'] as List? ?? const []).map((raw) {
+                    final card = GameStateCodec.cardFromJson(Map<String, dynamic>.from(raw as Map));
+                    return Text(card.toString(), style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: card.suit.isRed ? Colors.red : Colors.black87));
+                  }).toList()),
+                ] else
+                  Row(children: List.generate(p['handCount'] as int? ?? 0, (_) => const Padding(padding: EdgeInsets.only(right: 2), child: _CardBack()))),
+              ]),
+            ),
+        ]),
         if (_lastCommentary != null && _lastCommentary!.isNotEmpty)
           _sharedCommentaryBanner(_lastCommentary!),
         const SizedBox(height: 12),
@@ -587,9 +635,9 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
               if ((_public['discardPile'] as List? ?? const []).isEmpty)
                 Container(width: 76, height: 104, decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(10)))
               else
-                SizedBox(width: 112, height: 110, child: Stack(clipBehavior: Clip.none, children: [
+                SizedBox(width: 132, height: 110, child: Stack(clipBehavior: Clip.none, children: [
                   for (var i = 0; i < (_public['lastDiscardGroup'] as List? ?? const []).length; i++)
-                    Positioned(left: i * 10.0, top: i.isEven ? 0 : 5, child: _PlayingCardTile(card: GameStateCodec.cardFromJson(Map<String, dynamic>.from((_public['lastDiscardGroup'] as List)[i] as Map)), selected: false, enabled: false, onTap: () {})),
+                    Positioned(left: i * 20.0, top: i.isEven ? 0 : 5, child: _PlayingCardTile(card: GameStateCodec.cardFromJson(Map<String, dynamic>.from((_public['lastDiscardGroup'] as List)[i] as Map)), selected: false, enabled: false, onTap: () {})),
                 ])),
             ]),
           ],
@@ -621,13 +669,14 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
             unawaited(ScottAudio.instance.play('card_discard'));
             unawaited(ScottAudio.instance.play('card_draw'));
             widget.sendAction({'type': 'discard', 'cards': _selected.map(GameStateCodec.cardToJson).toList(), 'source': 'drawPile'});
-          }, child: const Text('चुने पत्ते फेंकें + Draw Pile से लें')),
+          }, child: const Text('चुने पत्ते फेंकें + Draw Pile से 1 लें')),
           OutlinedButton(onPressed: _selected.isEmpty || !canTakePrevious ? null : () {
             unawaited(ScottAudio.instance.play('card_discard'));
             unawaited(ScottAudio.instance.play('previous_pickup'));
             widget.sendAction({'type': 'discard', 'cards': _selected.map(GameStateCodec.cardToJson).toList(), 'source': 'previousPlayerDiscard'});
-          }, child: const Text('चुने पत्ते फेंकें + पिछला पत्ता लें')),
-          OutlinedButton(onPressed: () { unawaited(ScottAudio.instance.play('show')); widget.sendAction({'type': 'show'}); }, child: const Text('SHOW')),
+          }, child: const Text('पत्ते फेंकें + पिछले खिलाड़ी का पत्ता लें')),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(onPressed: () { unawaited(ScottAudio.instance.play('show')); widget.sendAction({'type': 'show'}); }, icon: const Icon(Icons.visibility), label: const Text('SHOW')),
         ],
         if (_message != null) Text(_message!, style: const TextStyle(color: Colors.red)),
         if (myPlayer == null) const Text('इस कमरे में आपका खिलाड़ी ID नहीं मिला.'),

@@ -63,7 +63,7 @@ class _ScottWebHomeState extends State<ScottWebHome> {
       if (!mounted) return;
       setState(() { _room = room; _busy = false; });
       _presenceTimer?.cancel();
-      _presenceTimer = Timer.periodic(const Duration(seconds: 10), (_) => unawaited(_service.updatePresence(room.code)));
+      _presenceTimer = Timer.periodic(const Duration(seconds: 10), (_) async { await _service.updatePresence(room.code); await _service.claimHostIfStale(room.code); });
       unawaited(_service.updatePresence(room.code));
       if (room.hostId != _service.userId) _watchGame(room.code);
     } catch (e) {

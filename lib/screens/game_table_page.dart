@@ -587,10 +587,10 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
               if ((_public['discardPile'] as List? ?? const []).isEmpty)
                 Container(width: 76, height: 104, decoration: BoxDecoration(border: Border.all(color: Colors.grey), borderRadius: BorderRadius.circular(10)))
               else
-                _PlayingCardTile(
-                  card: GameStateCodec.cardFromJson(Map<String, dynamic>.from((_public['discardPile'] as List).last as Map)),
-                  selected: false, enabled: false, onTap: () {},
-                ),
+                SizedBox(width: 112, height: 110, child: Stack(clipBehavior: Clip.none, children: [
+                  for (var i = 0; i < (_public['lastDiscardGroup'] as List? ?? const []).length; i++)
+                    Positioned(left: i * 10.0, top: i.isEven ? 0 : 5, child: _PlayingCardTile(card: GameStateCodec.cardFromJson(Map<String, dynamic>.from((_public['lastDiscardGroup'] as List)[i] as Map)), selected: false, enabled: false, onTap: () {})),
+                ])),
             ]),
           ],
         ),
@@ -617,7 +617,6 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
             })),
         ]),
         if (myTurn) ...[
-          OutlinedButton(onPressed: () { unawaited(ScottAudio.instance.play('show')); widget.sendAction({'type': 'show'}); }, child: const Text('SHOW')),
           FilledButton(onPressed: _selected.isEmpty ? null : () {
             unawaited(ScottAudio.instance.play('card_discard'));
             unawaited(ScottAudio.instance.play('card_draw'));
@@ -628,6 +627,7 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
             unawaited(ScottAudio.instance.play('previous_pickup'));
             widget.sendAction({'type': 'discard', 'cards': _selected.map(GameStateCodec.cardToJson).toList(), 'source': 'previousPlayerDiscard'});
           }, child: const Text('चुने पत्ते फेंकें + पिछला पत्ता लें')),
+          OutlinedButton(onPressed: () { unawaited(ScottAudio.instance.play('show')); widget.sendAction({'type': 'show'}); }, child: const Text('SHOW')),
         ],
         if (_message != null) Text(_message!, style: const TextStyle(color: Colors.red)),
         if (myPlayer == null) const Text('इस कमरे में आपका खिलाड़ी ID नहीं मिला.'),

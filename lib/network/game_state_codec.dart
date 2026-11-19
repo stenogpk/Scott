@@ -24,6 +24,7 @@ class GameStateCodec {
     'phase': state.phase.name,
     'roundNumber': state.roundNumber,
     'winnerId': state.winnerId,
+    'missedTurnCounts': state.missedTurnCounts,
     'revealHands': revealHands,
   };
 
@@ -61,6 +62,7 @@ class GameStateCodec {
       lastDiscardPlayerId: raw['lastDiscardPlayerId'] as String?,
       lastDiscardGroup: (raw['lastDiscardGroup'] as List? ?? const []).map((v) => cardFromJson(Map<String, dynamic>.from(v as Map))).toList(),
       roundNumber: raw['roundNumber'] as int? ?? 1,
+      missedTurnCounts: Map<String, int>.from((raw['missedTurnCounts'] as Map? ?? const {}).map((k, v) => MapEntry(k.toString(), (v as num).toInt())),),
     );
   }
 

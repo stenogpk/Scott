@@ -42,10 +42,12 @@ class GameState {
     this.lastDiscardPlayerId,
     List<PlayingCard> lastDiscardGroup = const [],
     this.roundNumber = 1,
+    Map<String, int> missedTurnCounts = const {},
   }) : players = List.unmodifiable(players),
        drawPile = List.unmodifiable(drawPile),
        discardPile = List.unmodifiable(discardPile),
-       lastDiscardGroup = List.unmodifiable(lastDiscardGroup);
+       lastDiscardGroup = List.unmodifiable(lastDiscardGroup),
+       missedTurnCounts = Map.unmodifiable(missedTurnCounts);
 
   final List<PlayerState> players;
   final List<PlayingCard> drawPile;
@@ -57,6 +59,7 @@ class GameState {
   final String? lastDiscardPlayerId;
   final List<PlayingCard> lastDiscardGroup;
   final int roundNumber;
+  final Map<String, int> missedTurnCounts;
 
   PlayerState get currentPlayer => players[currentPlayerIndex];
 
@@ -77,6 +80,7 @@ class GameState {
     String? lastDiscardPlayerId,
     List<PlayingCard>? lastDiscardGroup,
     int? roundNumber,
+    Map<String, int>? missedTurnCounts,
   }) => GameState(
     players: players ?? this.players,
     drawPile: drawPile ?? this.drawPile,
@@ -88,6 +92,7 @@ class GameState {
     lastDiscardPlayerId: lastDiscardPlayerId ?? this.lastDiscardPlayerId,
     lastDiscardGroup: lastDiscardGroup ?? this.lastDiscardGroup,
     roundNumber: roundNumber ?? this.roundNumber,
+    missedTurnCounts: missedTurnCounts ?? this.missedTurnCounts,
   );
 }
 

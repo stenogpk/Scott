@@ -124,10 +124,10 @@ class FirebaseRoomService {
     }
     final me = room.players.where((p) => p.id == _userId && p.isConnected && p.leftAt == 0).toList();
     if (me.isEmpty) return false;
+    await _putPath('rooms/${room.code}/public/hostId', jsonEncode(_userId));
     for (final player in room.players) {
       await _putPath('rooms/${room.code}/public/players/${player.id}', jsonEncode({...player.toJson(), 'isHost': player.id == _userId}));
     }
-    await _putPath('rooms/${room.code}/public/hostId', jsonEncode(_userId));
     return true;
   }
 

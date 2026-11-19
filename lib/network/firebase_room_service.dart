@@ -135,6 +135,9 @@ class FirebaseRoomService {
     await _ensureSignedIn();
     final room = await getRoom(code);
     final id = _userId!;
+    if (room.hostId == id && room.started) {
+      throw StateError('चल रहे गेम में Host को अभी सुरक्षित रूप से ट्रांसफर नहीं किया जा सकता। गेम पूरा होने तक Host ऐप खुला रखें।');
+    }
     final alternatives = room.players.where((p) => p.id != id && p.isConnected && p.leftAt == 0).toList();
     if (room.hostId == id && alternatives.isNotEmpty && !room.started) await transferHost(code, alternatives.first.id);
     await updatePresence(code, active: false);

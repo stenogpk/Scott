@@ -9,6 +9,7 @@ import 'network/game_state_codec.dart';
 import 'game/scott_game_engine.dart';
 import 'screens/game_table_page.dart';
 import 'screens/scott_rules_page.dart';
+import 'services/scott_audio.dart';
 
 const apiKey = String.fromEnvironment('FIREBASE_API_KEY');
 const databaseUrl = String.fromEnvironment('FIREBASE_DATABASE_URL');
@@ -103,7 +104,10 @@ class _ScottWebHomeState extends State<ScottWebHome> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('SCOTT • Online'), actions: [IconButton(tooltip: 'खेल के नियम / How to Play', icon: const Icon(Icons.menu_book_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage()))) ]),
+    appBar: AppBar(title: const Text('SCOTT • Online'), actions: [
+      IconButton(tooltip: 'खेल के नियम / How to Play', icon: const Icon(Icons.menu_book_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage()))),
+      IconButton(tooltip: 'Settings', icon: const Icon(Icons.settings_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottWebSettingsPage()))),
+    ]),
     body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 720), child: ListView(padding: const EdgeInsets.all(24), children: [
       Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(gradient: const LinearGradient(colors:[Color(0xFF142B45),Color(0xFF247A83)]), borderRadius: BorderRadius.circular(24)), child: const Column(children:[Text('SCOTT',style:TextStyle(color:Colors.white,fontSize:36,fontWeight:FontWeight.w900,letterSpacing:4)),Text('Browser से भी खेलें • App जरूरी नहीं',style:TextStyle(color:Colors.white))])),
       const SizedBox(height:14),
@@ -134,4 +138,49 @@ class _ScottWebHomeState extends State<ScottWebHome> {
       const SizedBox(height:10),const Center(child: Text('Developed by Shartendu', style: TextStyle(color: Color(0xFF71808C), fontWeight: FontWeight.w800))),
     ]))),
   );
+}
+
+
+class ScottWebSettingsPage extends StatefulWidget {
+  const ScottWebSettingsPage({super.key});
+  @override
+  State<ScottWebSettingsPage> createState() => _ScottWebSettingsPageState();
+}
+
+class _ScottWebSettingsPageState extends State<ScottWebSettingsPage> {
+  @override
+  Widget build(BuildContext context) {
+    final audio = ScottAudio.instance;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Settings')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 620),
+          child: ListView(padding: const EdgeInsets.all(20), children: [
+            SwitchListTile(
+              title: const Text('Sound Effects', style: TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: const Text('कार्ड, शो, शफल और जीत की आवाज़ें'),
+              value: audio.enabled,
+              onChanged: (value) => setState(() => audio.enabled = value),
+            ),
+            const SizedBox(height: 12),
+            const Text('Volume', style: TextStyle(fontWeight: FontWeight.w800)),
+            Slider(value: audio.volume, min: 0, max: 1, divisions: 10,
+              label: '${(audio.volume * 100).round()}%',
+              onChanged: (value) => setState(() => audio.volume = value)),
+            FilledButton.tonalIcon(onPressed: () => audio.play('tap'),
+              icon: const Icon(Icons.volume_up), label: const Text('Test Sound')),
+            const Divider(height: 30),
+            ListTile(leading: const Icon(Icons.menu_book_outlined),
+              title: const Text('खेल के नियम / How to Play'),
+              subtitle: const Text('हिंदी और English में पूरी नियमावली'),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage()))),
+            const ListTile(title: Text('Online Multiplayer'),
+              subtitle: Text('Firebase Guest Authentication और Realtime Database')),
+            const ListTile(title: Text('Developer'), subtitle: Text('Developed by Shartendu')),
+          ]),
+        ),
+      ),
+    );
+  }
 }

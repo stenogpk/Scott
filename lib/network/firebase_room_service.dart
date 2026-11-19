@@ -118,7 +118,7 @@ class FirebaseRoomService {
     final room = await getRoom(code);
     final id = _userId!;
     final alternatives = room.players.where((p) => p.id != id && p.isConnected && p.leftAt == 0).toList();
-    if (room.hostId == id && alternatives.isNotEmpty) await transferHost(code, alternatives.first.id);
+    if (room.hostId == id && alternatives.isNotEmpty && !room.started) await transferHost(code, alternatives.first.id);
     await updatePresence(code, active: false);
   }
 

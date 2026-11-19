@@ -113,6 +113,24 @@ class FirebaseRoomService {
     }
   }
 
+  Future<bool> claimHostIfStale(String code) async {
+    await _ensureSignedIn();
+    final room = await getRoom(code);
+    if (room.started || room.hostId == _userId) return false;
+    final currentHost = room.players.where((p) => p.id == room.hostId).toList();
+    if (currentHost.isNotEmpty) {
+      final lastSeen = currentHost.first.lastSeenAt;
+      if (lastSeen > 0 && DateTime.now().millisecondsSinceEpoch - lastSeen <= const Duration(seconds: 20).inMilliseconds) return false;
+    }
+    final me = room.players.where((p) => p.id == _userId && p.isConnected && p.leftAt == 0).toList();
+    if (me.isEmpty) return false;
+    for (final player in room.players) {
+      await _putPath('rooms/${room.code}/public/players/${player.id}', jsonEncode({...player.toJson(), 'isHost': player.id == _userId}));
+    }
+    await _putPath('rooms/${room.code}/public/hostId', jsonEncode(_userId));
+    return true;
+  }
+
   Future<void> leaveRoom(String code) async {
     await _ensureSignedIn();
     final room = await getRoom(code);

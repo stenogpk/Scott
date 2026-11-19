@@ -75,7 +75,7 @@ class FirebaseRoomService {
     final room = await getRoom(code);
     if (room.hostId != _userId) throw StateError('Only the room host can publish the game state.');
     if (recovery is Map) {
-      await _putPath('rooms/${room.code}/private/hostState', jsonEncode(Map<String, dynamic>.from(recovery)));
+      await _putPath('rooms/${room.code}/hostState', jsonEncode(Map<String, dynamic>.from(recovery)));
     }
     final hostPlayer = room.players.where((p) => p.id == _userId).toList();
     if (hostPlayer.isNotEmpty) {
@@ -199,7 +199,7 @@ class FirebaseRoomService {
     final state = room.gameState;
     if (state == null) return {'type': 'waiting'};
     if (room.hostId == id) {
-      final recoveryResponse = await _client.get(_pathUri('rooms/${code.toUpperCase()}/private/hostState'));
+      final recoveryResponse = await _client.get(_pathUri('rooms/${code.toUpperCase()}/hostState'));
       if (recoveryResponse.statusCode != 200 || recoveryResponse.body == 'null') {
         return {'type': 'hostRecoveryMissing', 'state': state};
       }

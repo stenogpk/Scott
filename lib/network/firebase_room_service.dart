@@ -34,7 +34,8 @@ class FirebaseRoomService {
     await _ensureSignedIn();
     final code = _newRoomCode();
     final hostId = _userId!;
-    final player = RoomPlayer(id: hostId, name: playerName.trim(), isHost: true);
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final player = RoomPlayer(id: hostId, name: playerName.trim(), isHost: true, lastSeenAt: now, lastActionAt: now);
     await _putPath('rooms/$code/public/hostId', jsonEncode(hostId));
     await _putPath('rooms/$code/public/code', jsonEncode(code));
     await _putPath('rooms/$code/public/targetScore', jsonEncode(targetScore));
@@ -50,7 +51,8 @@ class FirebaseRoomService {
     if (room.started) throw StateError('यह गेम शुरू हो चुका है।');
     if (room.players.length >= 5) throw StateError('कमरा भर चुका है।');
     if (room.players.any((p) => p.id == _userId)) return room;
-    final player = RoomPlayer(id: _userId!, name: playerName.trim());
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final player = RoomPlayer(id: _userId!, name: playerName.trim(), lastSeenAt: now, lastActionAt: now);
     // A joining guest may add only their own player record. updatedAt is
     // host-owned in the database rules, so writing it here caused every join
     // to fail with PERMISSION_DENIED after the player record was created.
@@ -77,6 +79,42 @@ class FirebaseRoomService {
     await _putPath('rooms/${room.code}/public/gameState', jsonEncode(publicState));
     await _putPath('rooms/${room.code}/public/started', 'true');
     await _putPath('rooms/${room.code}/public/updatedAt', jsonEncode(DateTime.now().millisecondsSinceEpoch));
+  }
+
+  Future<void> updatePresence(String code, {bool active = true, bool userAction = false}) async {
+    await _ensureSignedIn();
+    final id = _userId!;
+    final room = await getRoom(code);
+    final matches = room.players.where((p) => p.id == id).toList();
+    if (matches.isEmpty) return;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final current = matches.first;
+    await _putPath('rooms/${room.code}/public/players/$id', jsonEncode({
+      ...current.toJson(), 'isConnected': active, 'lastSeenAt': now,
+      'lastActionAt': userAction ? now : current.lastActionAt, 'leftAt': active ? 0 : now,
+    }));
+  }
+
+  Future<void> transferHost(String code, String newHostId) async {
+    await _ensureSignedIn();
+    final room = await getRoom(code);
+    if (room.hostId != _userId) throw StateError('केवल वर्तमान Host ही Host बदल सकता है।');
+    if (!room.players.any((p) => p.id == newHostId && p.isConnected && p.leftAt == 0)) {
+      throw StateError('नया Host ऑनलाइन खिलाड़ी होना चाहिए।');
+    }
+    await _putPath('rooms/${room.code}/public/hostId', jsonEncode(newHostId));
+    for (final player in room.players) {
+      await _putPath('rooms/${room.code}/public/players/${player.id}', jsonEncode({...player.toJson(), 'isHost': player.id == newHostId}));
+    }
+  }
+
+  Future<void> leaveRoom(String code) async {
+    await _ensureSignedIn();
+    final room = await getRoom(code);
+    final id = _userId!;
+    final alternatives = room.players.where((p) => p.id != id && p.isConnected && p.leftAt == 0).toList();
+    if (room.hostId == id && alternatives.isNotEmpty) await transferHost(code, alternatives.first.id);
+    await updatePresence(code, active: false);
   }
 
   Future<void> sendAction(String code, Map<String, dynamic> action) async {

@@ -222,6 +222,13 @@ class ScottGameEngine {
     );
   }
 
+  GameState skipTurn(GameState state, String playerId) {
+    _ensureActiveTurn(state, playerId);
+    final nextIndex = _nextActivePlayerIndex(state, state.currentPlayerIndex);
+    if (nextIndex == state.currentPlayerIndex) throw StateError('No other active player can receive the turn.');
+    return state.copyWith(currentPlayerIndex: nextIndex);
+  }
+
   void _ensureActiveTurn(GameState state, String playerId) {
     if (state.phase != GamePhase.waitingForTurn) throw StateError('The round is not accepting turns.');
     if (state.currentPlayer.id != playerId) throw StateError('It is not this player\'s turn.');

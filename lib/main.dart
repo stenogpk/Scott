@@ -35,6 +35,10 @@ class ScottApp extends StatelessWidget {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
       ),
     ),
+    builder: (context, child) => Stack(children: [
+      child ?? const SizedBox.shrink(),
+      const Positioned(right: 10, bottom: 6, child: IgnorePointer(child: Text('Developed by Shartendu', style: TextStyle(fontSize: 9, color: Color(0x8871808C), fontWeight: FontWeight.w700)))),
+    ]),
     home: const ProfileGate(),
   );
 }

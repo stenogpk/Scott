@@ -10,6 +10,7 @@ import '../game/scott_game_engine.dart';
 import '../network/game_state_codec.dart';
 import '../services/scott_audio.dart';
 import '../game/commentary.dart';
+import 'scott_rules_page.dart';
 typedef RoomAction = ({String playerId, Map<String, dynamic> action});
 
 class HostGameTablePage extends StatefulWidget {
@@ -207,6 +208,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     final isFinished = _state.phase == GamePhase.gameComplete;
     return Scaffold(
       appBar: AppBar(title: Text(isFinished ? 'विजेता' : 'SCOTT • राउंड ${_state.roundNumber}'), actions: [
+        IconButton(tooltip: 'खेल के नियम / How to Play', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage())), icon: const Icon(Icons.menu_book_outlined)),
         IconButton(tooltip: 'Scoreboard', onPressed: _scoreboard, icon: const Icon(Icons.leaderboard_outlined)),
       ]),
       body: SafeArea(child: Column(children: [

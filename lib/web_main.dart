@@ -84,7 +84,7 @@ class _ScottWebHomeState extends State<ScottWebHome> {
         playerId: _service.userId!, initialMessage: m,
         onLeave: () async {
           final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('गेम छोड़ें?'), content: const Text('आप इस ऑनलाइन गेम से बाहर हो जाएँगे।'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('रुकें')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('गेम छोड़ें'))]));
-          if (confirmed == true) { await _service.leaveRoom(code); if (mounted) Navigator.of(context).pop(); }
+          if (confirmed == true) { try { await _service.leaveRoom(code); if (mounted) Navigator.of(context).pop(); } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', '')))); } }
         },
       )));
     }, onError: (e) { if (mounted) setState(() => _error = e.toString()); });
@@ -101,7 +101,7 @@ class _ScottWebHomeState extends State<ScottWebHome> {
       final actions = _service.watchActions(room.code).asyncExpand((items) => Stream<RoomAction>.fromIterable(items.map((i) => (playerId:i['playerId'] as String, action:Map<String,dynamic>.from(i['action'] as Map)))));
       if (!mounted) return;
       setState(() => _busy = false);
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => HostGameTablePage(engine: engine, initialState: state, hostId: _service.userId!, actions: actions, publish: (s,h) => _service.publishGameState(room.code,s,h), sendToPlayer: (_,__){}, roomPresence: _service.watchRoom(room.code), onLeave: () async { final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('गेम छोड़ें?'), content: const Text('आप डिस्कनेक्ट हो जाएँगे। Host छोड़ता है तो Lobby में Host दूसरे ऑनलाइन खिलाड़ी को दिया जाएगा।'), actions: [TextButton(onPressed: () => Navigator.pop(ctx,false), child: const Text('रुकें')), FilledButton(onPressed: () => Navigator.pop(ctx,true), child: const Text('गेम छोड़ें'))])); if (confirmed == true) { await _service.leaveRoom(room.code); if (mounted) Navigator.of(context).pop(); } } })));
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => HostGameTablePage(engine: engine, initialState: state, hostId: _service.userId!, actions: actions, publish: (s,h) => _service.publishGameState(room.code,s,h), sendToPlayer: (_,__){}, roomPresence: _service.watchRoom(room.code), onLeave: () async { final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('गेम छोड़ें?'), content: const Text('आप डिस्कनेक्ट हो जाएँगे। Host छोड़ता है तो Lobby में Host दूसरे ऑनलाइन खिलाड़ी को दिया जाएगा।'), actions: [TextButton(onPressed: () => Navigator.pop(ctx,false), child: const Text('रुकें')), FilledButton(onPressed: () => Navigator.pop(ctx,true), child: const Text('गेम छोड़ें'))])); if (confirmed == true) { try { await _service.leaveRoom(room.code); if (mounted) Navigator.of(context).pop(); } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', '')))); } } } })));
     } catch (e) { if (mounted) setState(() { _error = e.toString(); _busy = false; }); }
   }
 

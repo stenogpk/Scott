@@ -8,6 +8,8 @@ import 'network/room_models.dart';
 import 'network/game_state_codec.dart';
 import 'game/scott_game_engine.dart';
 import 'screens/game_table_page.dart';
+import 'screens/scott_rules_page.dart';
+import 'services/scott_audio.dart';
 
 const apiKey = String.fromEnvironment('FIREBASE_API_KEY');
 const databaseUrl = String.fromEnvironment('FIREBASE_DATABASE_URL');
@@ -21,6 +23,10 @@ class ScottWebApp extends StatelessWidget {
     title: 'SCOTT Online',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(useMaterial3: true, colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF16A6A1)), scaffoldBackgroundColor: const Color(0xFFF3F6F8)),
+    builder: (context, child) => Stack(children: [
+      child ?? const SizedBox.shrink(),
+      const Positioned(right: 10, bottom: 6, child: IgnorePointer(child: Text('Developed by Shartendu', style: TextStyle(fontSize: 9, color: Color(0x8871808C), fontWeight: FontWeight.w700)))),
+    ]),
     home: const ScottWebHome(),
   );
 }
@@ -98,9 +104,14 @@ class _ScottWebHomeState extends State<ScottWebHome> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('SCOTT • Online')),
+    appBar: AppBar(title: const Text('SCOTT • Online'), actions: [
+      IconButton(tooltip: 'खेल के नियम / How to Play', icon: const Icon(Icons.menu_book_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage()))),
+      IconButton(tooltip: 'Settings', icon: const Icon(Icons.settings_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottWebSettingsPage()))),
+    ]),
     body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 720), child: ListView(padding: const EdgeInsets.all(24), children: [
       Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(gradient: const LinearGradient(colors:[Color(0xFF142B45),Color(0xFF247A83)]), borderRadius: BorderRadius.circular(24)), child: const Column(children:[Text('SCOTT',style:TextStyle(color:Colors.white,fontSize:36,fontWeight:FontWeight.w900,letterSpacing:4)),Text('Browser से भी खेलें • App जरूरी नहीं',style:TextStyle(color:Colors.white))])),
+      const SizedBox(height:14),
+      OutlinedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage())), icon: const Icon(Icons.menu_book_outlined), label: const Text('खेल के नियम / How to Play')),
       const SizedBox(height:18),
       TextField(controller:_name,maxLength:18,decoration:const InputDecoration(labelText:'आपका नाम',prefixIcon:Icon(Icons.person))),
       if (_room == null) ...[
@@ -124,6 +135,56 @@ class _ScottWebHomeState extends State<ScottWebHome> {
       if(_busy)const Padding(padding:EdgeInsets.all(16),child:Center(child:CircularProgressIndicator())),
       if(_error!=null)Padding(padding:const EdgeInsets.only(top:12),child:Text(_error!,style:const TextStyle(color:Colors.red))),
       const SizedBox(height:20),const Text('Online game runs through Firebase. 2–5 players per room.',textAlign:TextAlign.center,style:TextStyle(color:Colors.blueGrey)),
+      const SizedBox(height:10),
+      const Card(child: ListTile(leading: Icon(Icons.wifi_off_outlined), title: Text('Local Wi-Fi Multiplayer'), subtitle: Text('यह सुविधा Android ऐप में उपलब्ध है। Browser सुरक्षा सीमाओं के कारण Web पर Local Wi-Fi Host/Join उपलब्ध नहीं है.'), enabled: false)),
+      const SizedBox(height:10),const Center(child: Text('Developed by Shartendu', style: TextStyle(color: Color(0xFF71808C), fontWeight: FontWeight.w800))),
     ]))),
   );
+}
+
+
+class ScottWebSettingsPage extends StatefulWidget {
+  const ScottWebSettingsPage({super.key});
+  @override
+  State<ScottWebSettingsPage> createState() => _ScottWebSettingsPageState();
+}
+
+class _ScottWebSettingsPageState extends State<ScottWebSettingsPage> {
+  @override
+  Widget build(BuildContext context) {
+    final audio = ScottAudio.instance;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Settings')),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 620),
+          child: ListView(padding: const EdgeInsets.all(20), children: [
+            SwitchListTile(
+              title: const Text('Sound Effects', style: TextStyle(fontWeight: FontWeight.w800)),
+              subtitle: const Text('कार्ड, शो, शफल और जीत की आवाज़ें'),
+              value: audio.enabled,
+              onChanged: (value) => setState(() => audio.enabled = value),
+            ),
+            const SizedBox(height: 12),
+            const Text('Volume', style: TextStyle(fontWeight: FontWeight.w800)),
+            Slider(value: audio.volume, min: 0, max: 1, divisions: 10,
+              label: '${(audio.volume * 100).round()}%',
+              onChanged: (value) => setState(() => audio.volume = value)),
+            FilledButton.tonalIcon(onPressed: () => audio.play('tap'),
+              icon: const Icon(Icons.volume_up), label: const Text('Test Sound')),
+            const Divider(height: 30),
+            ListTile(leading: const Icon(Icons.menu_book_outlined),
+              title: const Text('खेल के नियम / How to Play'),
+              subtitle: const Text('हिंदी और English में पूरी नियमावली'),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage()))),
+            const ListTile(title: Text('Online Multiplayer'),
+              subtitle: Text('Firebase Guest Authentication और Realtime Database')),
+            const ListTile(leading: Icon(Icons.wifi_off_outlined), title: Text('Local Wi-Fi'),
+              subtitle: Text('केवल Android ऐप में उपलब्ध; Browser में Local Wi-Fi Host/Join समर्थित नहीं है.')),
+            const ListTile(title: Text('Developer'), subtitle: Text('Developed by Shartendu')),
+          ]),
+        ),
+      ),
+    );
+  }
 }

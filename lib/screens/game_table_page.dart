@@ -586,9 +586,9 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
             const SizedBox(height: 5),
             Wrap(spacing: 6, runSpacing: 4, children: [
               for (final p in players)
-                Chip(visualDensity: VisualDensity.compact, materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ConstrainedBox(constraints: BoxConstraints(minWidth: 90, maxWidth: kIsWeb ? 150 : 220), child: Chip(visualDensity: VisualDensity.compact, materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   backgroundColor: p['isEliminated'] == true ? const Color(0xFFFFDCDC) : Colors.white,
-                  label: Text('${p['name']}: ${p['score']}${p['isEliminated'] == true ? ' • OUT' : ''}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700))),
+                  label: Text('${p['name']}: ${p['score']}${p['isEliminated'] == true ? ' • OUT' : ''}', maxLines: kIsWeb ? 1 : 2, overflow: kIsWeb ? TextOverflow.ellipsis : TextOverflow.clip, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)))),
             ]),
           ]),
         ),
@@ -610,7 +610,7 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
         Wrap(spacing: 8, runSpacing: 8, children: [
           for (final p in players)
             Container(
-              width: 145, padding: const EdgeInsets.all(10),
+              width: kIsWeb ? 145 : 220, padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: p['isEliminated'] == true ? const Color(0xFFFFE6E6)
                     : (p['id'] == currentId && phase == GamePhase.waitingForTurn.name) ? const Color(0xFFE0F4EF) : Colors.white,

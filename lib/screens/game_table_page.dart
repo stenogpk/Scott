@@ -278,11 +278,11 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
         const SizedBox(height: 5),
         Wrap(spacing: 6, runSpacing: 4, children: [
           for (final player in _state.players)
-            ConstrainedBox(constraints: BoxConstraints(minWidth: 90, maxWidth: kIsWeb ? 150 : 220), child: Chip(
+            ConstrainedBox(constraints: BoxConstraints(minWidth: 90, maxWidth: 150), child: Chip(
               visualDensity: VisualDensity.compact,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               backgroundColor: player.isEliminated ? const Color(0xFFFFDCDC) : Colors.white,
-              label: Text('${player.name}: ${player.score}${player.isEliminated ? ' • OUT' : ''}', maxLines: kIsWeb ? 1 : 2, overflow: kIsWeb ? TextOverflow.ellipsis : TextOverflow.clip, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+              label: Text('${player.name}: ${player.score}${player.isEliminated ? ' • OUT' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
             )),
         ]),
       ],
@@ -300,7 +300,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     children: [
       for (final p in _state.players)
         Container(
-          width: kIsWeb ? 145 : 220, padding: const EdgeInsets.all(10),
+          width: 145, padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: p.isEliminated ? const Color(0xFFFFE6E6) : p.id == _state.currentPlayer.id && _state.phase == GamePhase.waitingForTurn ? const Color(0xFFE0F4EF) : Colors.white,
             borderRadius: BorderRadius.circular(12),

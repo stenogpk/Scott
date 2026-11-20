@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:confetti/confetti.dart';
 import '../game/game_models.dart';
 import '../game/playing_card.dart';
@@ -277,11 +278,11 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
         const SizedBox(height: 5),
         Wrap(spacing: 6, runSpacing: 4, children: [
           for (final player in _state.players)
-            ConstrainedBox(constraints: const BoxConstraints(minWidth: 90, maxWidth: 150), child: Chip(
+            ConstrainedBox(constraints: BoxConstraints(minWidth: 90, maxWidth: kIsWeb ? 150 : 220), child: Chip(
               visualDensity: VisualDensity.compact,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               backgroundColor: player.isEliminated ? const Color(0xFFFFDCDC) : Colors.white,
-              label: Text('${player.name}: ${player.score}${player.isEliminated ? ' • OUT' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+              label: Text('${player.name}: ${player.score}${player.isEliminated ? ' • OUT' : ''}', maxLines: kIsWeb ? 1 : 2, overflow: kIsWeb ? TextOverflow.ellipsis : TextOverflow.clip, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
             )),
         ]),
       ],
@@ -299,14 +300,14 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
     children: [
       for (final p in _state.players)
         Container(
-          width: 145, padding: const EdgeInsets.all(10),
+          width: kIsWeb ? 145 : 220, padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: p.isEliminated ? const Color(0xFFFFE6E6) : p.id == _state.currentPlayer.id && _state.phase == GamePhase.waitingForTurn ? const Color(0xFFE0F4EF) : Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: p.id == _state.currentPlayer.id && _state.phase == GamePhase.waitingForTurn ? const Color(0xFF16A6A1) : const Color(0xFFE0E7EC), width: p.id == _state.currentPlayer.id && _state.phase == GamePhase.waitingForTurn ? 2 : 1),
           ),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+            Text(p.name, maxLines: kIsWeb ? 1 : 2, overflow: kIsWeb ? TextOverflow.ellipsis : TextOverflow.clip, style: const TextStyle(fontWeight: FontWeight.w800)),
             Text('स्कोर: ${p.score}', style: const TextStyle(fontSize: 12)),
             if (p.isEliminated) const Text('ससम्मान बाहेर 😂', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.w800)),
             if (_state.phase == GamePhase.waitingForTurn)
@@ -619,7 +620,7 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
                   width: p['id'] == currentId && phase == GamePhase.waitingForTurn.name ? 2 : 1),
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text('${p['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text('${p['name']}', maxLines: kIsWeb ? 1 : 2, overflow: kIsWeb ? TextOverflow.ellipsis : TextOverflow.clip, style: const TextStyle(fontWeight: FontWeight.w800)),
                 Text('स्कोर: ${p['score']}', style: const TextStyle(fontSize: 12)),
                 if (p['isEliminated'] == true) const Text('ससम्मान बाहेर 😂', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.w800)),
                 if (reveal) ...[

@@ -278,11 +278,11 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
         const SizedBox(height: 5),
         Wrap(spacing: 6, runSpacing: 4, children: [
           for (final player in _state.players)
-            ConstrainedBox(constraints: BoxConstraints(minWidth: 90, maxWidth: 150), child: Chip(
+            ConstrainedBox(constraints: BoxConstraints(minWidth: 90, maxWidth: kIsWeb ? 150 : 220), child: Chip(
               visualDensity: VisualDensity.compact,
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               backgroundColor: player.isEliminated ? const Color(0xFFFFDCDC) : Colors.white,
-              label: Text('${player.name}: ${player.score}${player.isEliminated ? ' • OUT' : ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+              label: Text('${player.name}: ${player.score}${player.isEliminated ? ' • OUT' : ''}', maxLines: kIsWeb ? 1 : 2, overflow: kIsWeb ? TextOverflow.ellipsis : TextOverflow.clip, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
             )),
         ]),
       ],

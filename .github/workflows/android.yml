@@ -29,7 +29,11 @@ jobs:
       - name: Generate Android platform
         run: flutter create --platforms=android --org com.shartendu --project-name scott_game .
       - name: Set Android compile SDK for Agora dependencies
-        run: sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 35/; s/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 35/' android/app/build.gradle
+        run: |
+          BUILD_FILE="$(find android/app -maxdepth 1 -type f \\( -name 'build.gradle' -o -name 'build.gradle.kts' \\) -print -quit)"
+          if [ -z "$BUILD_FILE" ]; then echo 'Android Gradle build file not found'; ls -la android/app; exit 1; fi
+          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 35/; s/compileSdk flutter.compileSdkVersion/compileSdk 35/; s/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 35/' "$BUILD_FILE"
+          grep -n 'compileSdk' "$BUILD_FILE"
       - name: Apply SCOTT Android network permissions
         run: cp tool/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
       - name: Generate original sound effects

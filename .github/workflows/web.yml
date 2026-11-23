@@ -1,7 +1,7 @@
 name: SCOTT Web Deploy
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "feature/cloudflare-agora-token-server"]
   workflow_dispatch:
 permissions:
   contents: read

@@ -32,10 +32,16 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
           path = Path('android/app/build.gradle')
           source = path.read_text()
-          updated, count = re.subn(r'(?m)^(\\s*compileSdk(?:Version)?\\s*(?:=\\s*)?).+      - name: Apply SCOTT Android network permissions
+          updated = source.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 35')
+          updated = updated.replace('compileSdkVersion flutter.compileSdkVersion', 'compileSdkVersion 35')
+          if updated == source:
+              raise SystemExit('Could not find generated compileSdk declaration')
+          path.write_text(updated)
+          print('Android compileSdk set to 35')
+          PY
+      - name: Apply SCOTT Android network permissions
         run: cp tool/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
       - name: Generate original sound effects
         run: python3 tool/generate_sounds.py

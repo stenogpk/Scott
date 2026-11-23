@@ -25,7 +25,6 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
   bool _muted = false;
   bool _speakerEnabled = false;
   String? _error;
-  int? _localUid;
   final Map<int, String> _participantNames = {};
   final Set<int> _remoteUsers = <int>{};
   final Set<int> _mutedRemoteUsers = <int>{};
@@ -68,7 +67,6 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
           }
         }
       }
-      _localUid = uid;
 
       engine = createAgoraRtcEngine();
       await engine.initialize(RtcEngineContext(
@@ -162,7 +160,6 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
       _joining = false;
       _muted = false;
       _speakerEnabled = false;
-      _localUid = null;
       _remoteUsers.clear();
       _mutedRemoteUsers.clear();
       _participantNames.clear();
@@ -210,7 +207,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
               icon: Icon(_muted ? Icons.mic_off : Icons.mic),
               label: Text(_muted ? 'Unmute Mic' : 'Mute Mic'),
             ),
-            OutlinedButton.icon(
+            if (!kIsWeb) OutlinedButton.icon(
               onPressed: _toggleSpeakerRoute,
               icon: Icon(_speakerEnabled ? Icons.volume_up : Icons.hearing),
               label: Text(_speakerEnabled ? 'Speaker ON' : 'Earpiece'),

@@ -46,10 +46,12 @@ class _ScottWebHomeState extends State<ScottWebHome> {
   String? _error;
   int _target = 150;
   StreamSubscription<Map<String,dynamic>>? _gameSub;
+  Timer? _presenceTimer;
   bool _opened = false;
+  bool _hostPromoted = false;
 
   @override
-  void dispose() { _name.dispose(); _code.dispose(); unawaited(_gameSub?.cancel()); unawaited(_service.dispose()); super.dispose(); }
+  void dispose() { _presenceTimer?.cancel(); _name.dispose(); _code.dispose(); unawaited(_gameSub?.cancel()); unawaited(_service.dispose()); super.dispose(); }
 
   String get _inviteLink => '${Uri.base.origin}${Uri.base.path}?room=${_room?.code ?? _code.text.trim().toUpperCase()}';
 
@@ -61,6 +63,9 @@ class _ScottWebHomeState extends State<ScottWebHome> {
       final room = await task();
       if (!mounted) return;
       setState(() { _room = room; _busy = false; });
+      _presenceTimer?.cancel();
+      _presenceTimer = Timer.periodic(const Duration(seconds: 10), (_) async { await _service.updatePresence(room.code); await _service.claimHostIfStale(room.code); });
+      unawaited(_service.updatePresence(room.code));
       if (room.hostId != _service.userId) _watchGame(room.code);
     } catch (e) {
       if (mounted) setState(() { _error = e.toString().replaceFirst('Bad state: ', ''); _busy = false; });
@@ -73,11 +78,46 @@ class _ScottWebHomeState extends State<ScottWebHome> {
   void _watchGame(String code) {
     _gameSub?.cancel();
     _gameSub = _service.watchGame(code).listen((m) {
-      if (!mounted || _opened || m['type'] != 'game') return;
+      if (!mounted) return;
+      if (m['type'] == 'host' && !_hostPromoted) {
+        _hostPromoted = true;
+        _opened = true;
+        final recovery = Map<String, dynamic>.from(m['recovery'] as Map);
+        final engine = ScottGameEngine();
+        final state = GameStateCodec.stateFromHostRecovery(recovery);
+        final actions = _service.watchActions(code).asyncExpand((items) => Stream<RoomAction>.fromIterable(items.map((i) => (playerId:i['playerId'] as String, action:Map<String,dynamic>.from(i['action'] as Map)))));
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => HostGameTablePage(
+          engine: engine,
+          initialState: state,
+          initialHistory: (recovery['history'] as List? ?? const []).map((v) => Map<String, dynamic>.from(v as Map)).toList(),
+          hostId: _service.userId!,
+          actions: actions,
+          publish: (publicState, privateHands) => _service.publishGameState(code, publicState, privateHands),
+          sendToPlayer: (_, __) {},
+          roomPresence: _service.watchRoom(code),
+          onLeave: () async {
+            final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+              title: const Text('गेम छोड़ें?'),
+              content: const Text('आप Host हैं। गेम छोड़ने पर अगला ऑनलाइन खिलाड़ी Host बनेगा।'),
+              actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('रुकें')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('गेम छोड़ें'))],
+            ));
+            if (confirmed == true) {
+              try { await _service.leaveRoom(code); if (mounted) Navigator.of(context).pop(); }
+              catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', '')))); }
+            }
+          },
+        )));
+        return;
+      }
+      if (_opened || m['type'] != 'game') return;
       _opened = true;
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => RemoteGameTablePage(
         messages: _service.watchGame(code), sendAction: (a) => unawaited(_service.sendAction(code, a)),
         playerId: _service.userId!, initialMessage: m,
+        onLeave: () async {
+          final confirmed = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(title: const Text('गेम छोड़ें?'), content: const Text('आप इस ऑनलाइन गेम से बाहर हो जाएँगे।'), actions: [TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('रुकें')), FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('गेम छोड़ें'))]));
+          if (confirmed == true) { try { await _service.leaveRoom(code); if (mounted) Navigator.of(context).pop(); } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', '')))); } }
+        },
       )));
     }, onError: (e) { if (mounted) setState(() => _error = e.toString()); });
   }
@@ -93,7 +133,36 @@ class _ScottWebHomeState extends State<ScottWebHome> {
       final actions = _service.watchActions(room.code).asyncExpand((items) => Stream<RoomAction>.fromIterable(items.map((i) => (playerId:i['playerId'] as String, action:Map<String,dynamic>.from(i['action'] as Map)))));
       if (!mounted) return;
       setState(() => _busy = false);
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => HostGameTablePage(engine: engine, initialState: state, hostId: _service.userId!, actions: actions, publish: (s,h) => _service.publishGameState(room.code,s,h), sendToPlayer: (_,__){})));
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => HostGameTablePage(
+        engine: engine,
+        initialState: state,
+        hostId: _service.userId!,
+        actions: actions,
+        publish: (publicState, privateHands) => _service.publishGameState(room.code, publicState, privateHands),
+        sendToPlayer: (_, __) {},
+        roomPresence: _service.watchRoom(room.code),
+        onLeave: () async {
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('गेम छोड़ें?'),
+              content: const Text('आप डिस्कनेक्ट हो जाएँगे। Host छोड़ता है तो Lobby में Host दूसरे ऑनलाइन खिलाड़ी को दिया जाएगा।'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('रुकें')),
+                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('गेम छोड़ें')),
+              ],
+            ),
+          );
+          if (confirmed == true) {
+            try {
+              await _service.leaveRoom(room.code);
+              if (mounted) Navigator.of(context).pop();
+            } catch (e) {
+              if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString().replaceFirst('Bad state: ', ''))));
+            }
+          }
+        },
+      )));
     } catch (e) { if (mounted) setState(() { _error = e.toString(); _busy = false; }); }
   }
 
@@ -126,6 +195,7 @@ class _ScottWebHomeState extends State<ScottWebHome> {
           Text('Room Code: ${_room!.code}',style:const TextStyle(fontSize:24,fontWeight:FontWeight.w900),textAlign:TextAlign.center),
           const SizedBox(height:8),Text('Target: ${_room!.targetScore} • खिलाड़ी ${_room!.players.length}/5',textAlign:TextAlign.center),
           const SizedBox(height:8),for(final p in _room!.players) ListTile(leading:Icon(p.isHost?Icons.star:Icons.person),title:Text(p.name),subtitle:p.isHost?const Text('Host'):null),
+          OutlinedButton.icon(onPressed:_busy?null:() async { final confirmed = await showDialog<bool>(context:context,builder:(ctx)=>AlertDialog(title:const Text('कमरा छोड़ें?'),content:const Text('अगर आप Host हैं तो कमरे का Host अगले ऑनलाइन खिलाड़ी को दिया जाएगा।'),actions:[TextButton(onPressed:()=>Navigator.pop(ctx,false),child:const Text('रुकें')),FilledButton(onPressed:()=>Navigator.pop(ctx,true),child:const Text('कमरा छोड़ें'))])); if(confirmed==true){await _service.leaveRoom(_room!.code);_presenceTimer?.cancel();if(mounted)setState(()=>_room=null);} },icon:const Icon(Icons.exit_to_app),label:const Text('कमरा छोड़ें')),
           if(_room!.hostId==_service.userId)FilledButton.icon(onPressed:_busy||_room!.players.length<2?null:_start,icon:const Icon(Icons.play_arrow),label:const Text('Game Start')),
           OutlinedButton.icon(onPressed:_copyInvite,icon:const Icon(Icons.share),label:const Text('Invite Link Copy करें')),
           SelectableText(_inviteLink,textAlign:TextAlign.center),

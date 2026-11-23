@@ -63,6 +63,27 @@ void main() {
     });
   });
 
+  group('SCOTT turn skip', () {
+    test('skipTurn advances to the next active player and skips eliminated players', () {
+      final state = GameState(
+        players: [
+          PlayerState(id: 'p1', name: 'One', hand: [card(CardRank.two, CardSuit.clubs)]),
+          PlayerState(id: 'p2', name: 'Two', hand: [card(CardRank.three, CardSuit.clubs)], isEliminated: true),
+          PlayerState(id: 'p3', name: 'Three', hand: [card(CardRank.four, CardSuit.clubs)]),
+        ],
+        drawPile: const [],
+        discardPile: const [],
+        currentPlayerIndex: 0,
+        targetScore: 150,
+        phase: GamePhase.waitingForTurn,
+      );
+      final next = ScottGameEngine().skipTurn(state, 'p1');
+      expect(next.currentPlayer.id, 'p3');
+      expect(next.players[0].hand, state.players[0].hand);
+      expect(next.phase, GamePhase.waitingForTurn);
+    });
+  });
+
   group('SCOTT discard validation', () {
     test('a nine can never be discarded', () {
       final state = stateFor(

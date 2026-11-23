@@ -51,7 +51,7 @@ class _ScottWebHomeState extends State<ScottWebHome> {
   @override
   void dispose() { _name.dispose(); _code.dispose(); unawaited(_gameSub?.cancel()); unawaited(_service.dispose()); super.dispose(); }
 
-  String get _inviteLink => 'https://stenogpk.github.io/Scott/?room=${_room?.code ?? _code.text.trim().toUpperCase()}';
+  String get _inviteLink => 'https://stenogpk.github.io/Scott/voice-test/?room=${_room?.code ?? _code.text.trim().toUpperCase()}';
 
   Future<void> _run(Future<RoomSnapshot> Function() task) async {
     final name = _name.text.trim();

@@ -15,6 +15,12 @@ class FirebaseRoomService {
   String? _userId;
   DateTime? _tokenExpiresAt;
   String? get userId => _userId;
+  Future<String> getCurrentIdToken() async {
+    await _ensureSignedIn();
+    final token = _idToken;
+    if (token == null || token.isEmpty) throw StateError('Firebase session is unavailable.');
+    return token;
+  }
   bool get isConfigured => apiKey.isNotEmpty && databaseUrl.startsWith('https://');
 
   Future<void> signInAsGuest() async {

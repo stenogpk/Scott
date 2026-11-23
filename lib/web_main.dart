@@ -51,7 +51,7 @@ class _ScottWebHomeState extends State<ScottWebHome> {
   @override
   void dispose() { _name.dispose(); _code.dispose(); unawaited(_gameSub?.cancel()); unawaited(_service.dispose()); super.dispose(); }
 
-  String get _inviteLink => '${Uri.base.origin}${Uri.base.path}?room=${_room?.code ?? _code.text.trim().toUpperCase()}';
+  String get _inviteLink => 'https://stenogpk.github.io/Scott/?room=${_room?.code ?? _code.text.trim().toUpperCase()}';
 
   Future<void> _run(Future<RoomSnapshot> Function() task) async {
     final name = _name.text.trim();
@@ -98,10 +98,7 @@ class _ScottWebHomeState extends State<ScottWebHome> {
     } catch (e) { if (mounted) setState(() { _error = e.toString(); _busy = false; }); }
   }
 
-  Future<void> _copyInvite() async {
-    await Clipboard.setData(ClipboardData(text: _inviteLink));
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invite link कॉपी हो गया!')));
-  }
+  String get _inviteMessage => 'क्या आप ससम्मान बाहेर होने का गौरव प्राप्त करने के लिए तैयार हैं? 😂\\nतो आइए मेरे साथ SCOTT Game के मैदान में!\\n\\n🎮 गेम खेलने के लिए इस लिंक को खोलें:\\n$_inviteLink\\n\\nजुड़ने का तरीका:\\n\\n1. लिंक खोलें—गेम आपके ब्राउज़र में खुलेगा।\\n2. अपना नाम दर्ज करें।\\n3. Join Room दबाएँ और खेल शुरू करें!\\n\\n🎯 गेम का लक्ष्य: ${_room?.targetScore ?? _target} अंक।\\n\\n🎙️ Voice Chat का भी मज़ा लें!\\nगेम स्क्रीन में सबसे नीचे दिए गए Join Voice बटन पर क्लिक करें और दोस्तों के साथ खेलते-खेलते बातें भी करें। हँसी-मज़ाक और मस्ती का मज़ा दोगुना करें! 😂\\n\\nतो तैयार हो जाइए...\\n🃏 चालें चलेंगी, बाज़ी पलटेगी और कोई न कोई होगा ससम्मान बाहेर! 😂🔥';\n\n  Future<void> _copyInvite() async {\n    await Clipboard.setData(ClipboardData(text: _inviteMessage));\n    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('पूरा Invite Message कॉपी हो गया!')));\n  }
 
   @override
   Widget build(BuildContext context) => Scaffold(

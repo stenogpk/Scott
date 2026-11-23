@@ -386,7 +386,7 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
         _RoomHeader(room: _room!),
         const SizedBox(height: 12),
         FilledButton.icon(
-          onPressed: () => Share.share('क्या आप ससम्मान बाहेर होने का गौरव प्राप्त करने के लिए तैयार हैं? 😂\nतो आइए मेरे साथ SCOTT Game के मैदान में!\n\n🎮 गेम खेलने के लिए इस लिंक को खोलें:\nhttps://stenogpk.github.io/Scott/?room=${_room!.code}\n\nजुड़ने का तरीका:\n\n1. लिंक खोलें—गेम आपके ब्राउज़र में खुलेगा।\n2. अपना नाम दर्ज करें।\n3. Join Room दबाएँ और खेल शुरू करें!\n\n🎯 गेम का लक्ष्य: ${_room!.targetScore} अंक।\n\n🎙️ Voice Chat का भी मज़ा लें!\nगेम स्क्रीन में सबसे नीचे दिए गए Join Voice बटन पर क्लिक करें और दोस्तों के साथ खेलते-खेलते बातें भी करें। हँसी-मज़ाक और मस्ती का मज़ा दोगुना करें! 😂\n\nतो तैयार हो जाइए...\n🃏 चालें चलेंगी, बाज़ी पलटेगी और कोई न कोई होगा ससम्मान बाहेर! 😂🔥'),
+          onPressed: () => Share.share('क्या आप ससम्मान बाहेर होने का गौरव प्राप्त करने के लिए तैयार हैं? 😂\nतो आइए मेरे साथ SCOTT Game के मैदान में!\n\n🎮 गेम खेलने के लिए इस लिंक को खोलें:\nhttps://stenogpk.github.io/Scott/voice-test/?room=${_room!.code}\n\nजुड़ने का तरीका:\n\n1. लिंक खोलें—गेम आपके ब्राउज़र में खुलेगा।\n2. अपना नाम दर्ज करें।\n3. Join Room दबाएँ और खेल शुरू करें!\n\n🎯 गेम का लक्ष्य: ${_room!.targetScore} अंक।\n\n🎙️ Voice Chat का भी मज़ा लें!\nगेम स्क्रीन में सबसे नीचे दिए गए Join Voice बटन पर क्लिक करें और दोस्तों के साथ खेलते-खेलते बातें भी करें। हँसी-मज़ाक और मस्ती का मज़ा दोगुना करें! 😂\n\nतो तैयार हो जाइए...\n🃏 चालें चलेंगी, बाज़ी पलटेगी और कोई न कोई होगा ससम्मान बाहेर! 😂🔥'),
           icon: const Icon(Icons.share),
           label: const Text('Share Room / Invite Friends'),
         ),

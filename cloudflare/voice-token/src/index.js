@@ -31,7 +31,7 @@ function corsHeaders(origin = "*") {
 
 async function authenticateFirebaseUser(request) {
   const authorization = request.headers.get("authorization") || "";
-  const match = authorization.match(/^Bearer\\s+(.+)$/i);
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
   if (!match) throw new Error("Firebase sign-in required.");
   const { payload } = await jwtVerify(match[1], FIREBASE_JWKS, {
     issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
@@ -52,7 +52,7 @@ async function makeAgoraUid(firebaseUid) {
 }
 
 async function getRoomPlayers(databaseUrl, roomCode, idToken) {
-  const base = databaseUrl.replace(/\\/+$/, "");
+  const base = databaseUrl.replace(/\/+$/, "");
   const url = `${base}/rooms/${encodeURIComponent(roomCode)}/public/players.json?auth=${encodeURIComponent(idToken)}`;
   const response = await fetch(url, { headers: { accept: "application/json" } });
   if (!response.ok) throw new Error("Unable to verify SCOTT room membership.");

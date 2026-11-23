@@ -31,15 +31,13 @@ function corsHeaders(origin = "*") {
 
 async function authenticateFirebaseUser(request) {
   const authorization = request.headers.get("authorization") || "";
-  const match = authorization.match(/^Bearer\s+(.+)$/i);
+  const match = authorization.match(/^Bearer\\s+(.+)$/i);
   if (!match) throw new Error("Firebase sign-in required.");
-
   const { payload } = await jwtVerify(match[1], FIREBASE_JWKS, {
     issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
     audience: FIREBASE_PROJECT_ID,
     algorithms: ["RS256"]
   });
-
   if (typeof payload.sub !== "string" || payload.sub.length < 1 || payload.sub.length > 128) {
     throw new Error("Invalid Firebase user.");
   }
@@ -53,66 +51,53 @@ async function makeAgoraUid(firebaseUid) {
   return value || 1;
 }
 
-async function isRoomMember(databaseUrl, roomCode, firebaseUid, idToken) {
-  const base = databaseUrl.replace(/\/+$/, "");
-  const path = `rooms/${encodeURIComponent(roomCode)}/public/players/${encodeURIComponent(firebaseUid)}.json`;
-  const url = `${base}/${path}?auth=${encodeURIComponent(idToken)}`;
+async function getRoomPlayers(databaseUrl, roomCode, idToken) {
+  const base = databaseUrl.replace(/\\/+$/, "");
+  const url = `${base}/rooms/${encodeURIComponent(roomCode)}/public/players.json?auth=${encodeURIComponent(idToken)}`;
   const response = await fetch(url, { headers: { accept: "application/json" } });
-  if (!response.ok) return false;
-  return (await response.json()) !== null;
+  if (!response.ok) throw new Error("Unable to verify SCOTT room membership.");
+  const raw = await response.json();
+  if (!raw || typeof raw !== "object") return [];
+  return Promise.all(Object.entries(raw).map(async ([firebaseUid, player]) => ({
+    uid: await makeAgoraUid(firebaseUid),
+    name: typeof player?.name === "string" && player.name.trim() ? player.name.trim().slice(0, 24) : "खिलाड़ी"
+  })));
 }
 
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("origin") || "*";
-
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders(origin) });
-    }
-
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders(origin) });
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/health") {
       return json({ ok: true, service: "scott-voice-token" }, 200, origin);
     }
-
     if (request.method !== "POST" || url.pathname !== "/rtc-token") {
       return json({ error: "Not found" }, 404, origin);
     }
-
     if (!env.AGORA_APP_ID || !env.AGORA_APP_CERTIFICATE || !env.FIREBASE_DATABASE_URL) {
       return json({ error: "Server configuration is incomplete." }, 503, origin);
     }
-
     try {
       const user = await authenticateFirebaseUser(request);
       const body = await request.json();
       const roomCode = typeof body.roomCode === "string" ? body.roomCode.trim().toUpperCase() : "";
-
       if (!/^[A-Z0-9]{6}$/.test(roomCode)) {
         return json({ error: "A valid 6-character roomCode is required." }, 400, origin);
       }
-
-      const member = await isRoomMember(env.FIREBASE_DATABASE_URL, roomCode, user.uid, user.idToken);
-      if (!member) return json({ error: "You are not a member of this SCOTT room." }, 403, origin);
-
+      const players = await getRoomPlayers(env.FIREBASE_DATABASE_URL, roomCode, user.idToken);
+      if (!players.some((player) => player.uid === await makeAgoraUid(user.uid))) {
+        return json({ error: "You are not a member of this SCOTT room." }, 403, origin);
+      }
       const agoraUid = await makeAgoraUid(user.uid);
       const expireAt = Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS;
       const token = RtcTokenBuilder.buildTokenWithUid(
-        env.AGORA_APP_ID,
-        env.AGORA_APP_CERTIFICATE,
-        roomCode,
-        agoraUid,
-        RtcRole.PUBLISHER,
-        TOKEN_TTL_SECONDS,
-        TOKEN_TTL_SECONDS
+        env.AGORA_APP_ID, env.AGORA_APP_CERTIFICATE, roomCode, agoraUid,
+        RtcRole.PUBLISHER, TOKEN_TTL_SECONDS, TOKEN_TTL_SECONDS
       );
-
       return json({
-        appId: env.AGORA_APP_ID,
-        channel: roomCode,
-        uid: agoraUid,
-        token,
-        expiresAt: expireAt
+        appId: env.AGORA_APP_ID, channel: roomCode, uid: agoraUid, token,
+        expiresAt: expireAt, participants: players
       }, 200, origin);
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : "Token request failed." }, 401, origin);

@@ -78,6 +78,7 @@ class _ScottWebHomeState extends State<ScottWebHome> {
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => RemoteGameTablePage(
         messages: _service.watchGame(code), sendAction: (a) => unawaited(_service.sendAction(code, a)),
         playerId: _service.userId!, initialMessage: m,
+        voiceRoomCode: code, getFirebaseIdToken: _service.getCurrentIdToken,
       )));
     }, onError: (e) { if (mounted) setState(() => _error = e.toString()); });
   }
@@ -93,7 +94,7 @@ class _ScottWebHomeState extends State<ScottWebHome> {
       final actions = _service.watchActions(room.code).asyncExpand((items) => Stream<RoomAction>.fromIterable(items.map((i) => (playerId:i['playerId'] as String, action:Map<String,dynamic>.from(i['action'] as Map)))));
       if (!mounted) return;
       setState(() => _busy = false);
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => HostGameTablePage(engine: engine, initialState: state, hostId: _service.userId!, actions: actions, publish: (s,h) => _service.publishGameState(room.code,s,h), sendToPlayer: (_,__){})));
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => HostGameTablePage(engine: engine, initialState: state, hostId: _service.userId!, actions: actions, publish: (s,h) => _service.publishGameState(room.code,s,h), sendToPlayer: (_,__) {}, voiceRoomCode: room.code, getFirebaseIdToken: _service.getCurrentIdToken)));
     } catch (e) { if (mounted) setState(() { _error = e.toString(); _busy = false; }); }
   }
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:material_ui/material_ui.dart';
@@ -12,6 +13,7 @@ class VoiceChatPanel extends StatefulWidget {
   const VoiceChatPanel({super.key, required this.roomCode, required this.getFirebaseIdToken});
   final String roomCode;
   final Future<String> Function() getFirebaseIdToken;
+
   @override
   State<VoiceChatPanel> createState() => _VoiceChatPanelState();
 }
@@ -21,8 +23,12 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
   bool _joining = false;
   bool _joined = false;
   bool _muted = false;
+  bool _speakerEnabled = false;
   String? _error;
+  int? _localUid;
+  final Map<int, String> _participantNames = {};
   final Set<int> _remoteUsers = <int>{};
+  final Set<int> _mutedRemoteUsers = <int>{};
 
   Future<void> _join() async {
     if (_joining || _joined) return;
@@ -31,76 +37,222 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
     try {
       if (!kIsWeb) {
         final permission = await Permission.microphone.request();
-        if (!permission.isGranted) throw StateError('Voice Chat के लिए Microphone permission जरूरी है।');
+        if (!permission.isGranted) {
+          throw StateError('Voice Chat के लिए Microphone permission जरूरी है।');
+        }
       }
       final idToken = await widget.getFirebaseIdToken();
-      final response = await http.post(Uri.parse('$_voiceTokenEndpoint/rtc-token'),
+      final response = await http.post(
+        Uri.parse('$_voiceTokenEndpoint/rtc-token'),
         headers: {'content-type': 'application/json', 'authorization': 'Bearer $idToken'},
-        body: jsonEncode({'roomCode': widget.roomCode})).timeout(const Duration(seconds: 20));
+        body: jsonEncode({'roomCode': widget.roomCode}),
+      ).timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) {
         final body = jsonDecode(response.body);
-        throw StateError(body is Map ? (body['error']?.toString() ?? 'Voice token request failed (${response.statusCode}).') : 'Voice token request failed (${response.statusCode}).');
+        throw StateError(body is Map
+            ? (body['error']?.toString() ?? 'Voice token request failed (${response.statusCode}).')
+            : 'Voice token request failed (${response.statusCode}).');
       }
       final payload = jsonDecode(response.body) as Map<String, dynamic>;
       final appId = payload['appId'] as String;
       final channel = payload['channel'] as String;
       final token = payload['token'] as String;
       final uid = (payload['uid'] as num).toInt();
+      final rawParticipants = payload['participants'] as List? ?? const [];
+      _participantNames.clear();
+      for (final item in rawParticipants) {
+        if (item is Map) {
+          final participantUid = (item['uid'] as num?)?.toInt();
+          if (participantUid != null) {
+            _participantNames[participantUid] = item['name']?.toString() ?? 'खिलाड़ी';
+          }
+        }
+      }
+      _localUid = uid;
+
       engine = createAgoraRtcEngine();
-      await engine.initialize(RtcEngineContext(appId: appId, channelProfile: ChannelProfileType.channelProfileCommunication));
+      await engine.initialize(RtcEngineContext(
+        appId: appId,
+        channelProfile: ChannelProfileType.channelProfileCommunication,
+      ));
       await engine.enableAudio();
       engine.registerEventHandler(RtcEngineEventHandler(
-        onJoinChannelSuccess: (connection, elapsed) { if (mounted) setState(() { _joined = true; _joining = false; _error = null; }); },
-        onUserJoined: (connection, remoteUid, elapsed) { if (mounted) setState(() => _remoteUsers.add(remoteUid)); },
-        onUserOffline: (connection, remoteUid, reason) { if (mounted) setState(() => _remoteUsers.remove(remoteUid)); },
-        onError: (err, msg) { if (mounted) setState(() => _error = 'Agora error $err: $msg'); },
+        onJoinChannelSuccess: (connection, elapsed) {
+          if (mounted) setState(() { _joined = true; _joining = false; _error = null; });
+        },
+        onUserJoined: (connection, remoteUid, elapsed) {
+          if (mounted) setState(() => _remoteUsers.add(remoteUid));
+        },
+        onUserOffline: (connection, remoteUid, reason) {
+          if (mounted) setState(() {
+            _remoteUsers.remove(remoteUid);
+            _mutedRemoteUsers.remove(remoteUid);
+          });
+        },
+        onError: (err, msg) {
+          if (mounted) setState(() => _error = 'Agora error $err: $msg');
+        },
       ));
-      await engine.joinChannel(token: token, channelId: channel, uid: uid, options: const ChannelMediaOptions(
-        clientRoleType: ClientRoleType.clientRoleBroadcaster, publishMicrophoneTrack: true, publishCameraTrack: false,
-        autoSubscribeAudio: true, autoSubscribeVideo: false));
+      await engine.joinChannel(
+        token: token,
+        channelId: channel,
+        uid: uid,
+        options: const ChannelMediaOptions(
+          clientRoleType: ClientRoleType.clientRoleBroadcaster,
+          publishMicrophoneTrack: true,
+          publishCameraTrack: false,
+          autoSubscribeAudio: true,
+          autoSubscribeVideo: false,
+        ),
+      );
       _engine = engine;
       if (mounted) setState(() => _joining = false);
     } catch (error) {
       try { await engine?.leaveChannel(); } catch (_) {}
       try { await engine?.release(); } catch (_) {}
-      if (mounted) setState(() { _joining = false; _joined = false; _error = error.toString().replaceFirst('Bad state: ', ''); });
+      if (mounted) {
+        setState(() {
+          _joining = false;
+          _joined = false;
+          _error = error.toString().replaceFirst('Bad state: ', '');
+        });
+      }
     }
   }
-  Future<void> _toggleMute() async {
+
+  Future<void> _toggleMic() async {
     final next = !_muted;
-    try { await _engine?.muteLocalAudioStream(next); if (mounted) setState(() => _muted = next); }
-    catch (error) { if (mounted) setState(() => _error = 'Mic setting failed: $error'); }
+    try {
+      await _engine?.muteLocalAudioStream(next);
+      if (mounted) setState(() => _muted = next);
+    } catch (error) {
+      if (mounted) setState(() => _error = 'Mic setting failed: $error');
+    }
   }
+
+  Future<void> _toggleRemoteSpeaker(int uid) async {
+    final next = !_mutedRemoteUsers.contains(uid);
+    try {
+      await _engine?.muteRemoteAudioStream(uid: uid, mute: next);
+      if (mounted) setState(() {
+        if (next) { _mutedRemoteUsers.add(uid); } else { _mutedRemoteUsers.remove(uid); }
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = 'Player audio setting failed: $error');
+    }
+  }
+
+  Future<void> _toggleSpeakerRoute() async {
+    final next = !_speakerEnabled;
+    try {
+      await _engine?.setEnableSpeakerphone(next);
+      if (mounted) setState(() => _speakerEnabled = next);
+    } catch (error) {
+      if (mounted) setState(() => _error = 'Audio output setting failed: $error');
+    }
+  }
+
   Future<void> _leave() async {
-    final engine = _engine; _engine = null;
+    final engine = _engine;
+    _engine = null;
     try { await engine?.leaveChannel(); } catch (_) {}
     try { await engine?.release(); } catch (_) {}
-    if (mounted) setState(() { _joined = false; _joining = false; _muted = false; _remoteUsers.clear(); });
+    if (mounted) setState(() {
+      _joined = false;
+      _joining = false;
+      _muted = false;
+      _speakerEnabled = false;
+      _localUid = null;
+      _remoteUsers.clear();
+      _mutedRemoteUsers.clear();
+      _participantNames.clear();
+    });
   }
+
   @override
   void dispose() {
-    final engine = _engine; _engine = null;
-    if (engine != null) unawaited(engine.leaveChannel().then((_) => engine.release()).catchError((_) {}));
+    final engine = _engine;
+    _engine = null;
+    if (engine != null) {
+      unawaited(engine.leaveChannel().then((_) => engine.release()).catchError((_) {}));
+    }
     super.dispose();
   }
+
+  String _nameFor(int uid) => _participantNames[uid] ?? 'Player $uid';
+
   @override
-  Widget build(BuildContext context) => Card(margin: const EdgeInsets.fromLTRB(12, 10, 12, 4), child: Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [const Icon(Icons.headset_mic_rounded, color: Color(0xFF168B87)), const SizedBox(width: 8),
-        const Expanded(child: Text('Voice Chat', style: TextStyle(fontWeight: FontWeight.w900))),
-        if (_joined) Text('${_remoteUsers.length + 1} जुड़े', style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w700)),
-        if (_joining) const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
-      ]),
-      const SizedBox(height: 6),
-      Wrap(spacing: 8, runSpacing: 4, children: [
-        if (!_joined) FilledButton.tonalIcon(onPressed: _joining ? null : _join, icon: const Icon(Icons.mic), label: const Text('Join Voice')),
+  Widget build(BuildContext context) => Card(
+    margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.headset_mic_rounded, color: Color(0xFF168B87)),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('Voice Chat', style: TextStyle(fontWeight: FontWeight.w900))),
+          if (_joined) Text('${_remoteUsers.length + 1} जुड़े',
+              style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w700)),
+          if (_joining) const SizedBox(width: 18, height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2)),
+        ]),
+        const SizedBox(height: 6),
+        Wrap(spacing: 8, runSpacing: 4, children: [
+          if (!_joined)
+            FilledButton.tonalIcon(
+              onPressed: _joining ? null : _join,
+              icon: const Icon(Icons.mic),
+              label: const Text('Join Voice'),
+            ),
+          if (_joined) ...[
+            OutlinedButton.icon(
+              onPressed: _toggleMic,
+              icon: Icon(_muted ? Icons.mic_off : Icons.mic),
+              label: Text(_muted ? 'Unmute Mic' : 'Mute Mic'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _toggleSpeakerRoute,
+              icon: Icon(_speakerEnabled ? Icons.volume_up : Icons.hearing),
+              label: Text(_speakerEnabled ? 'Speaker ON' : 'Earpiece'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _leave,
+              icon: const Icon(Icons.call_end, color: Colors.red),
+              label: const Text('Leave'),
+            ),
+          ],
+        ]),
         if (_joined) ...[
-          OutlinedButton.icon(onPressed: _toggleMute, icon: Icon(_muted ? Icons.mic_off : Icons.mic), label: Text(_muted ? 'Unmute' : 'Mute')),
-          OutlinedButton.icon(onPressed: _leave, icon: const Icon(Icons.call_end, color: Colors.red), label: const Text('Leave')),
+          const Divider(height: 16),
+          const Text('Voice में जुड़े खिलाड़ी', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12)),
+          if (_remoteUsers.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 6),
+              child: Text('दूसरे खिलाड़ी के जुड़ने की प्रतीक्षा…', style: TextStyle(fontSize: 12, color: Colors.blueGrey)),
+            ),
+          for (final uid in _remoteUsers.toList()..sort())
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 17)),
+              title: Text(_nameFor(uid), style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: const Text('Connected'),
+              trailing: IconButton(
+                tooltip: _mutedRemoteUsers.contains(uid) ? 'Unmute this player' : 'Mute this player',
+                onPressed: () => _toggleRemoteSpeaker(uid),
+                icon: Icon(_mutedRemoteUsers.contains(uid) ? Icons.volume_off : Icons.volume_up),
+              ),
+            ),
         ],
+        if (_error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+          ),
+        if (!_joined && !_joining && _error == null)
+          const Text('सभी खिलाड़ी एक ही Room Code पर Voice Chat में जुड़ सकते हैं।',
+              style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
       ]),
-      if (_error != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12))),
-      if (!_joined && !_joining && _error == null) const Text('सभी खिलाड़ी एक ही Room Code पर Voice Chat में जुड़ सकते हैं।', style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
-    ]),
-  ));
+    ),
+  );
 }

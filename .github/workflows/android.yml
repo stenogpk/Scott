@@ -30,7 +30,10 @@ jobs:
         run: flutter create --platforms=android --org com.shartendu --project-name scott_game .
       - name: Set Android compile SDK for Agora dependencies
         run: |
-          BUILD_FILE="$(find android/app -maxdepth 1 -type f \\( -name 'build.gradle' -o -name 'build.gradle.kts' \\) -print -quit)"
+          BUILD_FILE=''
+          for candidate in android/app/build.gradle android/app/build.gradle.kts; do
+            if [ -f "$candidate" ]; then BUILD_FILE="$candidate"; break; fi
+          done
           if [ -z "$BUILD_FILE" ]; then echo 'Android Gradle build file not found'; ls -la android/app; exit 1; fi
           sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 35/; s/compileSdk flutter.compileSdkVersion/compileSdk 35/; s/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 35/' "$BUILD_FILE"
           grep -n 'compileSdk' "$BUILD_FILE"

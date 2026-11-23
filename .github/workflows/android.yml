@@ -52,33 +52,26 @@ jobs:
           from pathlib import Path
           cache = Path(os.environ.get('PUB_CACHE', str(Path.home() / '.pub-cache')))
           agora = cache / 'hosted' / 'pub.dev' / 'agora_rtc_engine-6.6.4' / 'android' / 'build.gradle'
-          if not agora.is_file():
-              raise SystemExit(f'Agora Gradle file not found: {agora}')
-          # Normalize the declaration instead of preserving malformed spacing/operator syntax.
-          patterns = [
-              (re.compile(r'(?m)^(\s*)compileSdkVersion\b.*$'), r'\g<1>compileSdkVersion 36'),
-              (re.compile(r'(?m)^(\s*)compileSdk\b.*$'), r'\g<1>compileSdk 36'),
-          ]
+          if not agora.is_file(): raise SystemExit(f'Agora Gradle file not found: {agora}')
           changed = []
           for gradle in cache.rglob('build.gradle*'):
-              if '/example/' in str(gradle):
-                  continue
-              try:
-                  source = gradle.read_text()
-              except (UnicodeDecodeError, OSError):
-                  continue
-              updated = source
-              for pattern, replacement in patterns:
-                  updated = pattern.sub(replacement, updated)
-              if updated != source:
-                  gradle.write_text(updated)
-                  changed.append(str(gradle))
-          content = agora.read_text()
-          lines = [line.strip() for line in content.splitlines() if re.match(r'^\s*compileSdk(?:Version)?\b', line)]
+              if '/example/' in str(gradle): continue
+              try: source = gradle.read_text()
+              except (UnicodeDecodeError, OSError): continue
+              if gradle.name.endswith('.kts'):
+                  updated = re.sub(r'(?m)^(\s*)compileSdk(?:Version)?\s*(?:=\s*)?.*$', r'\g<1>compileSdk = 36', source)
+              else:
+                  updated = re.sub(r'(?m)^(\s*)compileSdkVersion\s*(?:=\s*)?.*$', r'\g<1>compileSdkVersion 36', source)
+                  updated = re.sub(r'(?m)^(\s*)compileSdk\s*(?:=\s*)?.*$', r'\g<1>compileSdk 36', updated)
+              if updated != source: gradle.write_text(updated); changed.append(str(gradle))
+          agora_lines = [line.strip() for line in agora.read_text().splitlines() if re.match(r'^\s*compileSdk(?:Version)?\b', line)]
           print(f'Updated {len(changed)} plugin Gradle files')
-          print('Agora SDK declarations:', lines)
-          if 'compileSdkVersion 36' not in lines and 'compileSdk 36' not in lines:
-              raise SystemExit('Agora compile SDK did not normalize to 36')
+          print('Agora Groovy declaration:', agora_lines)
+          if 'compileSdkVersion 36' not in agora_lines and 'compileSdk 36' not in agora_lines: raise SystemExit('Agora Groovy compile SDK did not become 36')
+          for path in cache.glob('hosted/pub.dev/shared_preferences_android-*/android/build.gradle.kts'):
+              lines = [line.strip() for line in path.read_text().splitlines() if re.match(r'^\s*compileSdk\b', line)]
+              print(f'{path}: {lines}')
+              if 'compileSdk = 36' not in lines: raise SystemExit(f'Kotlin DSL compileSdk invalid in {path}')
           PY
       - name: Analyze
         run: flutter analyze

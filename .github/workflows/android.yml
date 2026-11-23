@@ -83,19 +83,12 @@ jobs:
           sed -i 's#</body>#<script src="https://download.agora.io/sdk/release/iris-web-rtc_n450_w4220_0.8.6.js"></script></body>#' web/index.html
       - name: Build Web
         run: flutter build web --target lib/web_main.dart --release --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --dart-define=FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}
-      - name: Upload Web build
+      - name: Build arm64 release APK
+        run: flutter build apk --release --split-per-abi --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --dart-define=FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}
+      - name: Upload arm64 APK
         uses: actions/upload-artifact@v4
         with:
-          name: SCOTT-web-preview
-          path: build/web/
+          name: SCOTT-arm64-release-apk
+          path: build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
           if-no-files-found: error
-          retention-days: 14
-      - name: Build release APK
-        run: flutter build apk --release --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --dart-define=FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: SCOTT-final-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-          retention-days: 14
+          retention-days: 3

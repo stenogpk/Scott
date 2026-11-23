@@ -715,7 +715,7 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
         OutlinedButton.icon(onPressed: _scoreboard, icon: const Icon(Icons.leaderboard), label: const Text('Scoreboard और History')),
         if (widget.voiceRoomCode != null && widget.getFirebaseIdToken != null) ...[
           const SizedBox(height: 16),
-          VoiceChatPanel(roomCode: widget.voiceRoomCode!, getFirebaseIdToken: widget.getFirebaseIdToken!),
+          VoiceChatPanel(key: _voicePanelKey, roomCode: widget.voiceRoomCode!, getFirebaseIdToken: widget.getFirebaseIdToken!),
         ],
       ])),
     );

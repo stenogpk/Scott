@@ -318,6 +318,8 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
         sendAction: (action) => unawaited(_service.sendAction(code, action)),
         playerId: _service.userId!,
         initialMessage: message,
+        voiceRoomCode: code,
+        getFirebaseIdToken: _service.getCurrentIdToken,
       )));
     }, onError: (Object error) {
       if (mounted) setState(() => _error = error.toString());
@@ -346,6 +348,8 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
         actions: actions,
         publish: (publicState, privateHands) => _service.publishGameState(room.code, publicState, privateHands),
         sendToPlayer: (_, __) {},
+        voiceRoomCode: room.code,
+        getFirebaseIdToken: _service.getCurrentIdToken,
       )));
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _busy = false; });

@@ -29,18 +29,7 @@ jobs:
       - name: Generate Android platform
         run: flutter create --platforms=android --org com.shartendu --project-name scott_game .
       - name: Set Android compile SDK for Agora dependencies
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path = Path('android/app/build.gradle')
-          source = path.read_text()
-          updated = source.replace('compileSdk = flutter.compileSdkVersion', 'compileSdk = 35')
-          updated = updated.replace('compileSdkVersion flutter.compileSdkVersion', 'compileSdkVersion 35')
-          if updated == source:
-              raise SystemExit('Could not find generated compileSdk declaration')
-          path.write_text(updated)
-          print('Android compileSdk set to 35')
-          PY
+        run: sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 35/; s/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 35/' android/app/build.gradle
       - name: Apply SCOTT Android network permissions
         run: cp tool/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
       - name: Generate original sound effects

@@ -18,6 +18,8 @@ Set the Cloudflare Worker Git integration root directory to `cloudflare/voice-to
 
 The Worker name is `scott-voice-token`, matching the Worker created in the Cloudflare dashboard.
 
+Cloudflare Git integration is configured for the `feature/cloudflare-agora-token-server` branch and this directory. A commit to this branch triggers the first build.
+
 ## Endpoints
 
 - `GET /health`: non-sensitive health check.

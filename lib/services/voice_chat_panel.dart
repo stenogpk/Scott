@@ -79,7 +79,9 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
           if (mounted) setState(() { _joined = true; _joining = false; _error = null; });
         },
         onUserJoined: (connection, remoteUid, elapsed) {
-          if (mounted) setState(() => _remoteUsers.add(remoteUid));
+          if (mounted) {
+            setState(() => _remoteUsers.add(remoteUid));
+          }
         },
         onUserOffline: (connection, remoteUid, reason) {
           if (mounted) setState(() {
@@ -122,7 +124,9 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
     final next = !_muted;
     try {
       await _engine?.muteLocalAudioStream(next);
-      if (mounted) setState(() => _muted = next);
+      if (mounted) {
+        setState(() => _muted = next);
+      }
     } catch (error) {
       if (mounted) setState(() => _error = 'Mic setting failed: $error');
     }
@@ -144,7 +148,9 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
     final next = !_speakerEnabled;
     try {
       await _engine?.setEnableSpeakerphone(next);
-      if (mounted) setState(() => _speakerEnabled = next);
+        if (mounted) {
+        setState(() => _speakerEnabled = next);
+      }
     } catch (error) {
       if (mounted) setState(() => _error = 'Audio output setting failed: $error');
     }

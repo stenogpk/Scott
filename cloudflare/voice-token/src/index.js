@@ -86,10 +86,10 @@ export default {
         return json({ error: "A valid 6-character roomCode is required." }, 400, origin);
       }
       const players = await getRoomPlayers(env.FIREBASE_DATABASE_URL, roomCode, user.idToken);
-      if (!players.some((player) => player.uid === await makeAgoraUid(user.uid))) {
+      const agoraUid = await makeAgoraUid(user.uid);
+      if (!players.some((player) => player.uid === agoraUid)) {
         return json({ error: "You are not a member of this SCOTT room." }, 403, origin);
       }
-      const agoraUid = await makeAgoraUid(user.uid);
       const expireAt = Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS;
       const token = RtcTokenBuilder.buildTokenWithUid(
         env.AGORA_APP_ID, env.AGORA_APP_CERTIFICATE, roomCode, agoraUid,

@@ -30,6 +30,8 @@ class HostGameTablePage extends StatefulWidget {
 }
 
 class _HostGameTablePageState extends State<HostGameTablePage> {
+  // Keep the Agora widget's State alive when the dynamic game ListView changes.
+  final GlobalKey _voicePanelKey = GlobalKey();
   late GameState _state;
   RoundResult? _result;
   final Set<PlayingCard> _selected = {};
@@ -249,7 +251,7 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
           if (isMyTurn) _turnControls(),
           if (widget.voiceRoomCode != null && widget.getFirebaseIdToken != null) ...[
             const SizedBox(height: 16),
-            VoiceChatPanel(roomCode: widget.voiceRoomCode!, getFirebaseIdToken: widget.getFirebaseIdToken!),
+            VoiceChatPanel(key: _voicePanelKey, roomCode: widget.voiceRoomCode!, getFirebaseIdToken: widget.getFirebaseIdToken!),
           ],
         ])),
       ])),
@@ -436,6 +438,8 @@ class RemoteGameTablePage extends StatefulWidget {
 }
 
 class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
+  // Keep the Agora widget's State alive when the dynamic game ListView changes.
+  final GlobalKey _voicePanelKey = GlobalKey();
   late Map<String, dynamic> _public;
   late List<PlayingCard> _hand;
   final Set<PlayingCard> _selected = {};

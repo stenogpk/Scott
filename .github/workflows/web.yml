@@ -22,7 +22,9 @@ jobs:
           channel: stable
           cache: true
       - name: Generate Web platform
-        run: flutter create --platforms=web --org com.shartendu --project-name scott_game .
+        run: |
+          flutter create --platforms=web --org com.shartendu --project-name scott_game .
+          sed -i 's#</body>#<script src="https://download.agora.io/sdk/release/iris-web-rtc_n450_w4220_0.8.6.js"></script></body>#' web/index.html
       - name: Generate sound effects
         run: python3 tool/generate_sounds.py
       - name: Install dependencies

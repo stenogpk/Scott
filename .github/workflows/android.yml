@@ -51,16 +51,15 @@ jobs:
           import re
           from pathlib import Path
           cache = Path(os.environ.get('PUB_CACHE', str(Path.home() / '.pub-cache')))
-          # Plugin Gradle files use several forms: compileSdkVersion 31,
-          # compileSdkVersion = 31, compileSdk = 31, or Flutter's SDK variable.
+          agora = cache / 'hosted' / 'pub.dev' / 'agora_rtc_engine-6.6.4' / 'android' / 'build.gradle'
+          if not agora.is_file():
+              raise SystemExit(f'Agora Gradle file not found: {agora}')
+          # Normalize the declaration instead of preserving malformed spacing/operator syntax.
           patterns = [
-              re.compile(r'(?m)^(\s*compileSdkVersion\s*(?:=\s*)?).*$'),
-              re.compile(r'(?m)^(\s*compileSdk\s*(?:=\s*)?).*$'),
+              (re.compile(r'(?m)^(\s*)compileSdkVersion\b.*$'), r'\g<1>compileSdkVersion 36'),
+              (re.compile(r'(?m)^(\s*)compileSdk\b.*$'), r'\g<1>compileSdk 36'),
           ]
           changed = []
-          agora_main = cache / 'hosted' / 'pub.dev' / 'agora_rtc_engine-6.6.4' / 'android' / 'build.gradle'
-          if not agora_main.is_file():
-              raise SystemExit(f'Expected Agora Android Gradle file not found: {agora_main}')
           for gradle in cache.rglob('build.gradle*'):
               if '/example/' in str(gradle):
                   continue
@@ -69,19 +68,17 @@ jobs:
               except (UnicodeDecodeError, OSError):
                   continue
               updated = source
-              for pattern in patterns:
-                  updated = pattern.sub(r'\g<1>36', updated)
+              for pattern, replacement in patterns:
+                  updated = pattern.sub(replacement, updated)
               if updated != source:
                   gradle.write_text(updated)
                   changed.append(str(gradle))
-          print(f'Updated compileSdk in {len(changed)} plugin Gradle files')
-          for path in changed:
-              print(path)
-          agora_text = agora_main.read_text()
-          sdk_lines = [line.strip() for line in agora_text.splitlines() if 'compileSdk' in line]
-          print('Agora compileSdk declaration:', sdk_lines)
-          if not any(re.search(r'compileSdk(?:Version)?\s*(?:=\s*)?36\b', line) for line in sdk_lines):
-              raise SystemExit('Agora plugin compileSdk was not set to 36; refusing APK build')
+          content = agora.read_text()
+          lines = [line.strip() for line in content.splitlines() if re.match(r'^\s*compileSdk(?:Version)?\b', line)]
+          print(f'Updated {len(changed)} plugin Gradle files')
+          print('Agora SDK declarations:', lines)
+          if 'compileSdkVersion 36' not in lines and 'compileSdk 36' not in lines:
+              raise SystemExit('Agora compile SDK did not normalize to 36')
           PY
       - name: Analyze
         run: flutter analyze

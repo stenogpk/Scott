@@ -43,29 +43,47 @@ jobs:
         run: python3 tool/generate_sounds.py
       - name: Install dependencies
         run: flutter pub get
-      - name: Set Android plugin compile SDK to 36
+      - name: Force compile SDK 36 in cached Android plugins
+        shell: bash
         run: |
           python3 - <<'PY'
-          from pathlib import Path
+          import os
           import re
-          root = Path.home() / '.pub-cache' / 'hosted' / 'pub.dev'
+          from pathlib import Path
+          cache = Path(os.environ.get('PUB_CACHE', str(Path.home() / '.pub-cache')))
+          if not cache.exists():
+              raise SystemExit(f'Pub cache not found: {cache}')
           patterns = [
               re.compile(r'(?m)^(\s*compileSdkVersion\s+)(?:flutter\.compileSdkVersion|\d+)'),
               re.compile(r'(?m)^(\s*compileSdk\s*=\s*)(?:flutter\.compileSdkVersion|\d+)'),
               re.compile(r'(?m)^(\s*compileSdk\s+)(?:flutter\.compileSdkVersion|\d+)'),
           ]
           changed = []
-          for gradle in root.glob('*/android/build.gradle*'):
-              source = gradle.read_text()
+          agora_files = []
+          for gradle in cache.rglob('build.gradle*'):
+              if 'agora_rtc_engine' in str(gradle):
+                  agora_files.append(gradle)
+              try:
+                  source = gradle.read_text()
+              except (UnicodeDecodeError, OSError):
+                  continue
               updated = source
               for pattern in patterns:
                   updated = pattern.sub(r'\g<1>36', updated)
               if updated != source:
                   gradle.write_text(updated)
                   changed.append(str(gradle))
-          print(f'Updated plugin compileSdk to 36 in {len(changed)} Gradle files')
+          print(f'Pub cache: {cache}')
+          print(f'Updated compileSdk in {len(changed)} plugin Gradle files')
           for path in changed:
               print(path)
+          if not agora_files:
+              raise SystemExit('Agora plugin Gradle file not found in pub cache')
+          for path in agora_files:
+              print(f'Agora Gradle file: {path}')
+              content = path.read_text()
+              if re.search(r'compileSdk(?:Version)?\s*(?:=\s*)?(?:flutter\.compileSdkVersion|31)', content):
+                  raise SystemExit(f'Agora compileSdk still unresolved in {path}')
           PY
       - name: Analyze
         run: flutter analyze

@@ -84,10 +84,12 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
           }
         },
         onUserOffline: (connection, remoteUid, reason) {
-          if (mounted) setState(() {
+          if (mounted) {
+            setState(() {
             _remoteUsers.remove(remoteUid);
             _mutedRemoteUsers.remove(remoteUid);
-          });
+            });
+          }
         },
         onError: (err, msg) {
           if (mounted) setState(() => _error = 'Agora error $err: $msg');
@@ -136,9 +138,11 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
     final next = !_mutedRemoteUsers.contains(uid);
     try {
       await _engine?.muteRemoteAudioStream(uid: uid, mute: next);
-      if (mounted) setState(() {
-        if (next) { _mutedRemoteUsers.add(uid); } else { _mutedRemoteUsers.remove(uid); }
-      });
+      if (mounted) {
+        setState(() {
+          if (next) { _mutedRemoteUsers.add(uid); } else { _mutedRemoteUsers.remove(uid); }
+        });
+      }
     } catch (error) {
       if (mounted) setState(() => _error = 'Player audio setting failed: $error');
     }
@@ -161,7 +165,8 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
     _engine = null;
     try { await engine?.leaveChannel(); } catch (_) {}
     try { await engine?.release(); } catch (_) {}
-    if (mounted) setState(() {
+    if (mounted) {
+      setState(() {
       _joined = false;
       _joining = false;
       _muted = false;
@@ -169,7 +174,8 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
       _remoteUsers.clear();
       _mutedRemoteUsers.clear();
       _participantNames.clear();
-    });
+      });
+    }
   }
 
   @override

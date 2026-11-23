@@ -35,7 +35,7 @@ jobs:
             if [ -f "$candidate" ]; then BUILD_FILE="$candidate"; break; fi
           done
           if [ -z "$BUILD_FILE" ]; then echo 'Android Gradle build file not found'; ls -la android/app; exit 1; fi
-          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 35/; s/compileSdk flutter.compileSdkVersion/compileSdk 35/; s/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 35/' "$BUILD_FILE"
+          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/; s/compileSdk flutter.compileSdkVersion/compileSdk 36/; s/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 36/' "$BUILD_FILE"
           grep -n 'compileSdk' "$BUILD_FILE"
       - name: Apply SCOTT Android network permissions
         run: cp tool/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
@@ -43,6 +43,30 @@ jobs:
         run: python3 tool/generate_sounds.py
       - name: Install dependencies
         run: flutter pub get
+      - name: Set Android plugin compile SDK to 36
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root = Path.home() / '.pub-cache' / 'hosted' / 'pub.dev'
+          patterns = [
+              re.compile(r'(?m)^(\s*compileSdkVersion\s+)(?:flutter\.compileSdkVersion|\d+)'),
+              re.compile(r'(?m)^(\s*compileSdk\s*=\s*)(?:flutter\.compileSdkVersion|\d+)'),
+              re.compile(r'(?m)^(\s*compileSdk\s+)(?:flutter\.compileSdkVersion|\d+)'),
+          ]
+          changed = []
+          for gradle in root.glob('*/android/build.gradle*'):
+              source = gradle.read_text()
+              updated = source
+              for pattern in patterns:
+                  updated = pattern.sub(r'\g<1>36', updated)
+              if updated != source:
+                  gradle.write_text(updated)
+                  changed.append(str(gradle))
+          print(f'Updated plugin compileSdk to 36 in {len(changed)} Gradle files')
+          for path in changed:
+              print(path)
+          PY
       - name: Analyze
         run: flutter analyze
       - name: Test

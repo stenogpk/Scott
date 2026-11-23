@@ -10,18 +10,21 @@ import '../game/playing_card.dart';
 import '../game/scott_game_engine.dart';
 import '../network/game_state_codec.dart';
 import '../services/scott_audio.dart';
+import '../services/voice_chat_panel.dart';
 import '../game/commentary.dart';
 import 'scott_rules_page.dart';
 typedef RoomAction = ({String playerId, Map<String, dynamic> action});
 
 class HostGameTablePage extends StatefulWidget {
-  const HostGameTablePage({super.key, required this.engine, required this.initialState, required this.publish, required this.sendToPlayer, required this.hostId, required this.actions});
+  const HostGameTablePage({super.key, required this.engine, required this.initialState, required this.publish, required this.sendToPlayer, required this.hostId, required this.actions, this.voiceRoomCode, this.getFirebaseIdToken});
   final ScottGameEngine engine;
   final GameState initialState;
   final Future<void> Function(Map<String, dynamic>, Map<String, List<Map<String, dynamic>>>) publish;
   final void Function(String, Map<String, dynamic>) sendToPlayer;
   final String hostId;
   final Stream<RoomAction> actions;
+  final String? voiceRoomCode;
+  final Future<String> Function()? getFirebaseIdToken;
   @override
   State<HostGameTablePage> createState() => _HostGameTablePageState();
 }
@@ -213,6 +216,8 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
         IconButton(tooltip: 'Scoreboard', onPressed: _scoreboard, icon: const Icon(Icons.leaderboard_outlined)),
       ]),
       body: SafeArea(child: Column(children: [
+        if (widget.voiceRoomCode != null && widget.getFirebaseIdToken != null)
+          VoiceChatPanel(roomCode: widget.voiceRoomCode!, getFirebaseIdToken: widget.getFirebaseIdToken!),
         _scoreStrip(),
         if (_commentaryText != null) _commentaryBanner(_commentaryText!),
         Expanded(child: ListView(padding: const EdgeInsets.all(14), children: [
@@ -417,11 +422,13 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
 }
 
 class RemoteGameTablePage extends StatefulWidget {
-  const RemoteGameTablePage({super.key, required this.messages, required this.sendAction, required this.playerId, required this.initialMessage});
+  const RemoteGameTablePage({super.key, required this.messages, required this.sendAction, required this.playerId, required this.initialMessage, this.voiceRoomCode, this.getFirebaseIdToken});
   final Stream<Map<String, dynamic>> messages;
   final void Function(Map<String, dynamic>) sendAction;
   final String playerId;
   final Map<String, dynamic> initialMessage;
+  final String? voiceRoomCode;
+  final Future<String> Function()? getFirebaseIdToken;
   @override
   State<RemoteGameTablePage> createState() => _RemoteGameTablePageState();
 }
@@ -577,6 +584,8 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
         ],
       ),
       body: SafeArea(child: ListView(padding: const EdgeInsets.all(14), children: [
+        if (widget.voiceRoomCode != null && widget.getFirebaseIdToken != null)
+          VoiceChatPanel(roomCode: widget.voiceRoomCode!, getFirebaseIdToken: widget.getFirebaseIdToken!),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

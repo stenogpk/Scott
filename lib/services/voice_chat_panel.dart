@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material_ui/material_ui.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
 
@@ -39,7 +39,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
         body: jsonEncode({'roomCode': widget.roomCode})).timeout(const Duration(seconds: 20));
       if (response.statusCode != 200) {
         final body = jsonDecode(response.body);
-        throw StateError(body is Map ? (body['error']?.toString() ?? 'Voice token request failed (${response.statusCode}).') : 'Voice token request failed (' + response.statusCode.toString() + ').');
+        throw StateError(body is Map ? (body['error']?.toString() ?? 'Voice token request failed (${response.statusCode}).') : 'Voice token request failed (${response.statusCode}).');
       }
       final payload = jsonDecode(response.body) as Map<String, dynamic>;
       final appId = payload['appId'] as String;

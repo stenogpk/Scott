@@ -216,8 +216,6 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
         IconButton(tooltip: 'Scoreboard', onPressed: _scoreboard, icon: const Icon(Icons.leaderboard_outlined)),
       ]),
       body: SafeArea(child: Column(children: [
-        if (widget.voiceRoomCode != null && widget.getFirebaseIdToken != null)
-          VoiceChatPanel(roomCode: widget.voiceRoomCode!, getFirebaseIdToken: widget.getFirebaseIdToken!),
         _scoreStrip(),
         if (_commentaryText != null) _commentaryBanner(_commentaryText!),
         Expanded(child: ListView(padding: const EdgeInsets.all(14), children: [
@@ -249,6 +247,10 @@ class _HostGameTablePageState extends State<HostGameTablePage> {
           ]),
           const SizedBox(height: 12),
           if (isMyTurn) _turnControls(),
+          if (widget.voiceRoomCode != null && widget.getFirebaseIdToken != null) ...[
+            const SizedBox(height: 16),
+            VoiceChatPanel(roomCode: widget.voiceRoomCode!, getFirebaseIdToken: widget.getFirebaseIdToken!),
+          ],
         ])),
       ])),
     );
@@ -584,8 +586,6 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
         ],
       ),
       body: SafeArea(child: ListView(padding: const EdgeInsets.all(14), children: [
-        if (widget.voiceRoomCode != null && widget.getFirebaseIdToken != null)
-          VoiceChatPanel(roomCode: widget.voiceRoomCode!, getFirebaseIdToken: widget.getFirebaseIdToken!),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -709,6 +709,10 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
         if (_message != null) Text(_message!, style: const TextStyle(color: Colors.red)),
         if (myPlayer == null) const Text('इस कमरे में आपका खिलाड़ी ID नहीं मिला.'),
         OutlinedButton.icon(onPressed: _scoreboard, icon: const Icon(Icons.leaderboard), label: const Text('Scoreboard और History')),
+        if (widget.voiceRoomCode != null && widget.getFirebaseIdToken != null) ...[
+          const SizedBox(height: 16),
+          VoiceChatPanel(roomCode: widget.voiceRoomCode!, getFirebaseIdToken: widget.getFirebaseIdToken!),
+        ],
       ])),
     );
   }

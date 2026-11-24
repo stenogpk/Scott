@@ -24,10 +24,10 @@ class FirebaseRoomService {
   bool get isConfigured => apiKey.isNotEmpty && databaseUrl.startsWith('https://');
 
   Future<void> signInAsGuest() async {
-    if (!isConfigured) throw StateError('Online multiplayer setup is incomplete. Firebase API key and Realtime Database URL are required.');
+    if (!isConfigured) throw StateError('ऑनलाइन सुविधा अभी उपलब्ध नहीं है। कृपया बाद में प्रयास करें।');
     final uri = Uri.parse('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=$apiKey');
     final response = await _client.post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode({'returnSecureToken': true}));
-    if (response.statusCode != 200) throw StateError('Guest sign-in failed: ${response.body}');
+    if (response.statusCode != 200) throw StateError('ऑनलाइन कनेक्शन नहीं हो सका। कृपया इंटरनेट कनेक्शन जाँचकर दोबारा प्रयास करें।');
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     _idToken = json['idToken'] as String;
     _refreshToken = json['refreshToken'] as String?;
@@ -67,7 +67,7 @@ class FirebaseRoomService {
   Future<RoomSnapshot> getRoom(String code) async {
     await _ensureSignedIn();
     final response = await _client.get(_pathUri('rooms/${code.toUpperCase()}/public'));
-    if (response.statusCode != 200) throw StateError('Room lookup failed: ${response.body}');
+    if (response.statusCode != 200) throw StateError('Room की जानकारी नहीं मिल सकी। कृपया Room Code जाँचें और दोबारा प्रयास करें।');
     final raw = jsonDecode(response.body);
     if (raw == null) throw StateError('यह Room Code नहीं मिला।');
     return RoomSnapshot.fromJson(Map<String, dynamic>.from(raw as Map)..['code'] = code.toUpperCase());
@@ -138,12 +138,12 @@ class FirebaseRoomService {
 
   Future<void> _putPath(String path, String body) async {
     final response = await _client.put(_pathUri(path), headers: {'Content-Type': 'application/json'}, body: body);
-    if (response.statusCode < 200 || response.statusCode >= 300) throw StateError('Firebase write failed: ${response.body}');
+    if (response.statusCode < 200 || response.statusCode >= 300) throw StateError('गेम डेटा सेव नहीं हो सका। कृपया दोबारा प्रयास करें।');
   }
 
   Future<void> _deletePath(String path) async {
     final response = await _client.delete(_pathUri(path));
-    if (response.statusCode < 200 || response.statusCode >= 300) throw StateError('Firebase action cleanup failed: ${response.body}');
+    if (response.statusCode < 200 || response.statusCode >= 300) throw StateError('गेम अपडेट पूरा नहीं हो सका। कृपया दोबारा प्रयास करें।');
   }
 
   Uri _pathUri(String path) => Uri.parse('${databaseUrl.replaceFirst(RegExp(r'/+$'), '')}/$path.json?auth=$_idToken');

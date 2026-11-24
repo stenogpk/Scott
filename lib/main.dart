@@ -415,8 +415,6 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
       ],
       if (_busy) const Padding(padding: EdgeInsets.all(18), child: Center(child: CircularProgressIndicator())),
       if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: Colors.red))),
-      const SizedBox(height: 18),
-      const Text('ऑनलाइन खेलने के लिए SCOTT Firebase project का secure configuration जरूरी है।', style: TextStyle(color: Color(0xFF657583), fontSize: 12)),
     ])),
   );
 }

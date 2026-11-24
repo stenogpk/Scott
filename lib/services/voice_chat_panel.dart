@@ -110,6 +110,14 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
     });
     RtcEngine? engine;
     try {
+      // A terminal SDK failure can leave the previous engine allocated.
+      // Release it before creating a fresh engine for an explicit retry.
+      final previousEngine = _engine;
+      _engine = null;
+      if (previousEngine != null) {
+        try { await previousEngine.leaveChannel(); } catch (_) {}
+        try { await previousEngine.release(); } catch (_) {}
+      }
       if (!kIsWeb) {
         final permission = await Permission.microphone.request();
         if (!permission.isGranted) {

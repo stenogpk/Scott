@@ -12,6 +12,7 @@ import 'game/scott_game_engine.dart';
 import 'screens/game_table_page.dart';
 import 'screens/scott_rules_page.dart';
 import 'screens/about_page.dart';
+import 'widgets/scott_royal_logo.dart';
 import 'network/game_state_codec.dart';
 import 'services/scott_audio.dart';
 
@@ -172,7 +173,7 @@ class _ScottHomePageState extends State<ScottHomePage> {
               borderRadius: BorderRadius.circular(26),
             ),
             child: const Column(children: [
-              Icon(Icons.style_rounded, color: Colors.white, size: 68),
+              ScottRoyalLogo(size: 116),
               SizedBox(height: 12),
               Text('SCOTT', style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 4)),
               SizedBox(height: 8),

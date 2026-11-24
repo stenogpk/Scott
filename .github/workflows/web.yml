@@ -34,6 +34,7 @@ jobs:
         run: |
           flutter create --platforms=web --org com.shartendu --project-name scott_game .
           sed -i 's#</body>#<script src="https://download.agora.io/sdk/release/iris-web-rtc_n450_w4220_0.8.6.js"></script></body>#' web/index.html
+          python3 tool/prepare_web.py
           python3 tool/generate_sounds.py
           flutter pub get
           flutter build web --release --base-href "/Scott/" --target lib/web_main.dart --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --dart-define=FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}
@@ -42,6 +43,7 @@ jobs:
         run: |
           flutter create --platforms=web --org com.shartendu --project-name scott_game .
           sed -i 's#</body>#<script src="https://download.agora.io/sdk/release/iris-web-rtc_n450_w4220_0.8.6.js"></script></body>#' web/index.html
+          python3 tool/prepare_web.py
           python3 tool/generate_sounds.py
           flutter pub get
           flutter build web --release --base-href "/Scott/voice-test/" --target lib/web_main.dart --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --dart-define=FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}

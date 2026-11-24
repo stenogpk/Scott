@@ -18,7 +18,6 @@ for density, size in legacy.items():
 for density, size in foreground.items():
     folder = ROOT / f"mipmap-{density}"
     folder.mkdir(parents=True, exist_ok=True)
-    # Keep the complete gold frame inside Android's adaptive-icon safe zone.
     artwork = image.resize((int(size * 0.72), int(size * 0.72)), Image.Resampling.LANCZOS)
     canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     canvas.alpha_composite(artwork, ((size - artwork.width) // 2, (size - artwork.height) // 2))
@@ -27,18 +26,18 @@ for density, size in foreground.items():
 adaptive = ROOT / "mipmap-anydpi-v26"
 adaptive.mkdir(parents=True, exist_ok=True)
 (adaptive / "ic_launcher.xml").write_text(
-    '<?xml version="1.0" encoding="utf-8"?>\\n'
-    '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\\n'
-    '    <background android:drawable="@color/scott_icon_background"/>\\n'
-    '    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>\\n'
-    '</adaptive-icon>\\n',
+    '<?xml version="1.0" encoding="utf-8"?>\n'
+    '<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">\n'
+    '    <background android:drawable="@color/scott_icon_background"/>\n'
+    '    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>\n'
+    '</adaptive-icon>\n',
     encoding="utf-8",
 )
 values = ROOT / "values"
 values.mkdir(parents=True, exist_ok=True)
 (values / "scott_icon_colors.xml").write_text(
-    '<?xml version="1.0" encoding="utf-8"?>\\n'
-    '<resources><color name="scott_icon_background">#000000</color></resources>\\n',
+    '<?xml version="1.0" encoding="utf-8"?>\n'
+    '<resources><color name="scott_icon_background">#000000</color></resources>\n',
     encoding="utf-8",
 )
 print("SCOTT launcher icon generated for legacy and adaptive Android launchers.")

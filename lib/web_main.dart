@@ -11,6 +11,7 @@ import 'screens/game_table_page.dart';
 import 'screens/scott_rules_page.dart';
 import 'screens/about_page.dart';
 import 'services/scott_audio.dart';
+import 'widgets/scott_royal_logo.dart';
 
 const apiKey = String.fromEnvironment('FIREBASE_API_KEY');
 const databaseUrl = String.fromEnvironment('FIREBASE_DATABASE_URL');
@@ -114,7 +115,7 @@ class _ScottWebHomeState extends State<ScottWebHome> {
       IconButton(tooltip: 'Settings', icon: const Icon(Icons.settings_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottWebSettingsPage()))),
     ]),
     body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 720), child: ListView(padding: const EdgeInsets.all(24), children: [
-      Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(gradient: const LinearGradient(colors:[Color(0xFF142B45),Color(0xFF247A83)]), borderRadius: BorderRadius.circular(24)), child: const Column(children:[Text('SCOTT',style:TextStyle(color:Colors.white,fontSize:36,fontWeight:FontWeight.w900,letterSpacing:4)),Text('Browser से भी खेलें • App जरूरी नहीं',style:TextStyle(color:Colors.white))])),
+      Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(gradient: const LinearGradient(colors:[Color(0xFF142B45),Color(0xFF247A83)]), borderRadius: BorderRadius.circular(24)), child: const Column(children:[ScottRoyalLogo(size:116),SizedBox(height:10),Text('SCOTT',style:TextStyle(color:Colors.white,fontSize:36,fontWeight:FontWeight.w900,letterSpacing:4)),SizedBox(height:6),Text('Browser से भी खेलें • App जरूरी नहीं',style:TextStyle(color:Colors.white))])),
       const SizedBox(height:14),
       const NewGamesComingSoon(),
       const SizedBox(height:14),

@@ -30,13 +30,11 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
   bool _wantsVoice = false;
   bool _manualLeave = false;
   bool _tearingDown = false;
-  bool _recoveryInProgress = false;
   int _retryAttempt = 0;
   int _engineGeneration = 0;
   final Set<int> _speakingUsers = <int>{};
   String? _error;
   String? _connectionDetail;
-  String? _lastDisconnectReason;
   _VoiceConnectionStatus _connectionStatus = _VoiceConnectionStatus.disconnected;
   final Map<int, String> _participantNames = {};
   final Set<int> _remoteUsers = <int>{};
@@ -220,7 +218,6 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
         },
         onConnectionStateChanged: (connection, state, reason) {
           if (!identical(_engine, engine) || _tearingDown || _manualLeave) return;
-          _lastDisconnectReason = reason.name;
           _log('connectionState=$state reason=$reason');
           switch (state) {
             case ConnectionStateType.connectionStateConnected:

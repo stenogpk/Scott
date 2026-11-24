@@ -21,7 +21,7 @@ class ScottWebApp extends StatelessWidget {
   const ScottWebApp({super.key});
   @override
   Widget build(BuildContext context) => MaterialApp(
-    title: 'SCOTT Online',
+    title: 'SCOTT',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(useMaterial3: true, colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF16A6A1)), scaffoldBackgroundColor: const Color(0xFFF3F6F8)),
     builder: (context, child) => Stack(children: [

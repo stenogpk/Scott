@@ -34,6 +34,8 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
   final Map<int, String> _participantNames = {};
   final Set<int> _remoteUsers = <int>{};
   final Set<int> _mutedRemoteUsers = <int>{};
+  final Map<int, String> _networkQuality = <int, String>{};
+  Timer? _joinTimeout;
 
   @override
   void initState() {
@@ -152,6 +154,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
         onJoinChannelSuccess: (connection, elapsed) {
           if (mounted && identical(_engine, engine)) {
             setState(() {
+              _joinTimeout?.cancel();
               _joined = true;
               _joining = false;
               _connectionStatus = _VoiceConnectionStatus.connected;
@@ -159,6 +162,16 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
               _error = null;
             });
           }
+        },
+        onNetworkQuality: (connection, remoteUid, txQuality, rxQuality) {
+          if (!mounted) return;
+          setState(() => _networkQuality[remoteUid] = rxQuality.name);
+        },
+        onUserMuteAudio: (connection, remoteUid, muted) {
+          if (!mounted) return;
+          setState(() {
+            if (muted) { _mutedRemoteUsers.add(remoteUid); } else { _mutedRemoteUsers.remove(remoteUid); }
+          });
         },
         onRejoinChannelSuccess: (connection, elapsed) {
           _setConnectionStatus(_VoiceConnectionStatus.connected, 'कनेक्शन वापस आ गया');
@@ -214,6 +227,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
             setState(() {
               _remoteUsers.remove(remoteUid);
               _mutedRemoteUsers.remove(remoteUid);
+              _networkQuality.remove(remoteUid);
               _speakingUsers.remove(remoteUid);
             });
           }
@@ -222,6 +236,16 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
           if (mounted) setState(() => _error = 'Agora error $err: $msg');
         },
       ));
+      _joinTimeout?.cancel();
+      _joinTimeout = Timer(const Duration(seconds: 25), () {
+        if (!mounted || _joined || !identical(_engine, engine)) return;
+        setState(() {
+          _joining = false;
+          _connectionStatus = _VoiceConnectionStatus.failed;
+          _connectionDetail = 'Voice कनेक्शन में समय लग रहा है';
+          _error = '25 सेकंड में Voice Room से कनेक्शन नहीं हुआ। Retry Voice दबाएँ।';
+        });
+      });
       await engine.joinChannel(
         token: token,
         channelId: channel,
@@ -235,8 +259,9 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
         ),
       );
       try { await engine.enableAudioVolumeIndication(interval: 300, smooth: 3, reportVad: true); } catch (_) {}
-      if (mounted) setState(() => _joining = false);
+      if (mounted && !_joined) setState(() => _joining = false);
     } catch (error) {
+      _joinTimeout?.cancel();
       if (identical(_engine, engine)) _engine = null;
       try { await engine?.leaveChannel(); } catch (_) {}
       try { await engine?.release(); } catch (_) {}
@@ -302,6 +327,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
         _remoteUsers.clear();
         _mutedRemoteUsers.clear();
         _speakingUsers.clear();
+        _networkQuality.clear();
         _participantNames.clear();
       });
     }
@@ -310,6 +336,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _joinTimeout?.cancel();
     final engine = _engine;
     _engine = null;
     if (engine != null) {
@@ -394,7 +421,10 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
               contentPadding: EdgeInsets.zero,
               leading: const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 17)),
               title: Text(_nameFor(uid), style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text(_speakingUsers.contains(uid) ? 'बोल रहे हैं' : 'Connected', style: TextStyle(color: _speakingUsers.contains(uid) ? Colors.green : null)),
+              subtitle: Text(
+                '${_speakingUsers.contains(uid) ? 'बोल रहे हैं • ' : ''}${_mutedRemoteUsers.contains(uid) ? 'Mic बंद' : 'Connected'}${_networkQuality[uid] == null ? '' : ' • Network ${_networkQuality[uid]}'}',
+                style: TextStyle(color: _speakingUsers.contains(uid) ? Colors.green : null),
+              ),
               trailing: IconButton(
                 tooltip: _mutedRemoteUsers.contains(uid) ? 'Unmute this player' : 'Mute this player',
                 onPressed: () => _toggleRemoteSpeaker(uid),

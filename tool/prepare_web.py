@@ -8,7 +8,7 @@ index = web / "index.html"
 
 # Decode the same Royal SCOTT artwork used by the Android launcher.
 logo_source = Path("assets/scott_launcher.png")
-logo_output = web / "assets" / "scott-royal-logo.png"
+logo_output = web / "scott-royal-logo.png"
 if not logo_source.is_file():
     raise SystemExit(f"SCOTT logo source not found: {logo_source}")
 logo_output.parent.mkdir(parents=True, exist_ok=True)
@@ -27,7 +27,7 @@ if index.exists():
     <meta property="og:type" content="website">
     <meta property="og:title" content="SCOTT">
     <meta property="og:description" content="SCOTT — an independent multi-game platform. Developed by Shartendu.">
-    <meta property="og:image" content="https://stenogpk.github.io/Scott/voice-test/assets/scott-royal-logo.png">
+    <meta property="og:image" content="https://stenogpk.github.io/Scott/voice-test/scott-royal-logo.png">
     <meta property="og:image:alt" content="SCOTT Royal S9 playing-card emblem">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:image" content="https://stenogpk.github.io/Scott/voice-test/assets/scott-royal-logo.png">

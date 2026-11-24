@@ -9,6 +9,8 @@ import 'package:permission_handler/permission_handler.dart';
 
 const String _voiceTokenEndpoint = 'https://scott-voice-token.theshartendu.workers.dev';
 
+enum _VoiceConnectionStatus { disconnected, joining, connected, reconnecting, failed }
+
 class VoiceChatPanel extends StatefulWidget {
   const VoiceChatPanel({super.key, required this.roomCode, required this.getFirebaseIdToken});
   final String roomCode;
@@ -18,20 +20,94 @@ class VoiceChatPanel extends StatefulWidget {
   State<VoiceChatPanel> createState() => _VoiceChatPanelState();
 }
 
-class _VoiceChatPanelState extends State<VoiceChatPanel> {
+class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObserver {
   RtcEngine? _engine;
   bool _joining = false;
   bool _joined = false;
   bool _muted = false;
   bool _speakerEnabled = false;
+  bool _renewingToken = false;
   String? _error;
+  String? _connectionDetail;
+  _VoiceConnectionStatus _connectionStatus = _VoiceConnectionStatus.disconnected;
   final Map<int, String> _participantNames = {};
   final Set<int> _remoteUsers = <int>{};
   final Set<int> _mutedRemoteUsers = <int>{};
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Do not force a leave/rejoin here: Agora owns transient network recovery.
+    // Record the lifecycle transition for the status panel and re-check state
+    // when the user returns to the game.
+    if (state == AppLifecycleState.resumed && mounted && _joined) {
+      setState(() => _connectionDetail = 'ऐप वापस सक्रिय हुआ');
+    }
+  }
+
+  Future<Map<String, dynamic>> _requestVoiceToken() async {
+    final idToken = await widget.getFirebaseIdToken();
+    final response = await http.post(
+      Uri.parse('$_voiceTokenEndpoint/rtc-token'),
+      headers: {'content-type': 'application/json', 'authorization': 'Bearer $idToken'},
+      body: jsonEncode({'roomCode': widget.roomCode}),
+    ).timeout(const Duration(seconds: 20));
+    if (response.statusCode != 200) {
+      dynamic body;
+      try { body = jsonDecode(response.body); } catch (_) {}
+      throw StateError(body is Map
+          ? (body['error']?.toString() ?? 'Voice token request failed (${response.statusCode}).')
+          : 'Voice token request failed (${response.statusCode}).');
+    }
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  Future<void> _renewVoiceToken(RtcEngine engine) async {
+    if (_renewingToken || !identical(_engine, engine)) return;
+    _renewingToken = true;
+    try {
+      final payload = await _requestVoiceToken();
+      if (!identical(_engine, engine)) return;
+      await engine.renewToken(payload['token'] as String);
+      if (mounted) {
+        setState(() {
+          _connectionDetail = 'Voice Token नवीनीकृत';
+          _error = null;
+        });
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = 'Voice Token renewal failed: $error');
+    } finally {
+      _renewingToken = false;
+    }
+  }
+
+  void _setConnectionStatus(_VoiceConnectionStatus status, String detail) {
+    if (!mounted) return;
+    setState(() {
+      _connectionStatus = status;
+      _connectionDetail = detail;
+      if (status == _VoiceConnectionStatus.connected) _error = null;
+      if (status == _VoiceConnectionStatus.failed) {
+        _joined = false;
+        _joining = false;
+      }
+    });
+  }
+
   Future<void> _join() async {
     if (_joining || _joined) return;
-    setState(() { _joining = true; _error = null; });
+    setState(() {
+      _joining = true;
+      _connectionStatus = _VoiceConnectionStatus.joining;
+      _connectionDetail = 'Voice Room से जुड़ रहे हैं…';
+      _error = null;
+    });
     RtcEngine? engine;
     try {
       if (!kIsWeb) {
@@ -40,19 +116,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
           throw StateError('Voice Chat के लिए Microphone permission जरूरी है।');
         }
       }
-      final idToken = await widget.getFirebaseIdToken();
-      final response = await http.post(
-        Uri.parse('$_voiceTokenEndpoint/rtc-token'),
-        headers: {'content-type': 'application/json', 'authorization': 'Bearer $idToken'},
-        body: jsonEncode({'roomCode': widget.roomCode}),
-      ).timeout(const Duration(seconds: 20));
-      if (response.statusCode != 200) {
-        final body = jsonDecode(response.body);
-        throw StateError(body is Map
-            ? (body['error']?.toString() ?? 'Voice token request failed (${response.statusCode}).')
-            : 'Voice token request failed (${response.statusCode}).');
-      }
-      final payload = jsonDecode(response.body) as Map<String, dynamic>;
+      final payload = await _requestVoiceToken();
       final appId = payload['appId'] as String;
       final channel = payload['channel'] as String;
       final token = payload['token'] as String;
@@ -69,6 +133,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
       }
 
       engine = createAgoraRtcEngine();
+      _engine = engine;
       await engine.initialize(RtcEngineContext(
         appId: appId,
         channelProfile: ChannelProfileType.channelProfileCommunication,
@@ -76,18 +141,61 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
       await engine.enableAudio();
       engine.registerEventHandler(RtcEngineEventHandler(
         onJoinChannelSuccess: (connection, elapsed) {
-          if (mounted) setState(() { _joined = true; _joining = false; _error = null; });
+          if (mounted && identical(_engine, engine)) {
+            setState(() {
+              _joined = true;
+              _joining = false;
+              _connectionStatus = _VoiceConnectionStatus.connected;
+              _connectionDetail = 'Voice Connected';
+              _error = null;
+            });
+          }
+        },
+        onRejoinChannelSuccess: (connection, elapsed) {
+          _setConnectionStatus(_VoiceConnectionStatus.connected, 'कनेक्शन वापस आ गया');
+        },
+        onConnectionStateChanged: (connection, state, reason) {
+          switch (state) {
+            case ConnectionStateType.connectionStateConnected:
+              _setConnectionStatus(_VoiceConnectionStatus.connected, 'Voice Connected');
+              break;
+            case ConnectionStateType.connectionStateReconnecting:
+              _setConnectionStatus(_VoiceConnectionStatus.reconnecting, 'नेटवर्क दोबारा जुड़ रहा है…');
+              break;
+            case ConnectionStateType.connectionStateFailed:
+              _setConnectionStatus(_VoiceConnectionStatus.failed, 'कनेक्शन बहाल नहीं हो पाया');
+              break;
+            case ConnectionStateType.connectionStateConnecting:
+              _setConnectionStatus(_VoiceConnectionStatus.joining, 'Voice Room से जुड़ रहे हैं…');
+              break;
+            case ConnectionStateType.connectionStateDisconnected:
+              // A deliberate Leave also produces Disconnected; do not turn it
+              // into an error or start a second join from this callback.
+              if (_connectionStatus != _VoiceConnectionStatus.disconnected) {
+                _setConnectionStatus(_VoiceConnectionStatus.disconnected, 'Voice Disconnected');
+              }
+              break;
+          }
+        },
+        onConnectionInterrupted: (connection) {
+          _setConnectionStatus(_VoiceConnectionStatus.reconnecting, 'नेटवर्क कनेक्शन बाधित है…');
+        },
+        onConnectionLost: (connection) {
+          // Agora continues its own retry process after this callback.
+          _setConnectionStatus(_VoiceConnectionStatus.reconnecting, 'नेटवर्क कमजोर है; दोबारा जुड़ने की कोशिश जारी है…');
+        },
+        onTokenPrivilegeWillExpire: (connection, token) {
+          final currentEngine = _engine;
+          if (currentEngine != null) unawaited(_renewVoiceToken(currentEngine));
         },
         onUserJoined: (connection, remoteUid, elapsed) {
-          if (mounted) {
-            setState(() => _remoteUsers.add(remoteUid));
-          }
+          if (mounted) setState(() => _remoteUsers.add(remoteUid));
         },
         onUserOffline: (connection, remoteUid, reason) {
           if (mounted) {
             setState(() {
-            _remoteUsers.remove(remoteUid);
-            _mutedRemoteUsers.remove(remoteUid);
+              _remoteUsers.remove(remoteUid);
+              _mutedRemoteUsers.remove(remoteUid);
             });
           }
         },
@@ -107,15 +215,17 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
           autoSubscribeVideo: false,
         ),
       );
-      _engine = engine;
       if (mounted) setState(() => _joining = false);
     } catch (error) {
+      if (identical(_engine, engine)) _engine = null;
       try { await engine?.leaveChannel(); } catch (_) {}
       try { await engine?.release(); } catch (_) {}
       if (mounted) {
         setState(() {
           _joining = false;
           _joined = false;
+          _connectionStatus = _VoiceConnectionStatus.failed;
+          _connectionDetail = 'Voice में जुड़ना विफल हुआ';
           _error = error.toString().replaceFirst('Bad state: ', '');
         });
       }
@@ -126,9 +236,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
     final next = !_muted;
     try {
       await _engine?.muteLocalAudioStream(next);
-      if (mounted) {
-        setState(() => _muted = next);
-      }
+      if (mounted) setState(() => _muted = next);
     } catch (error) {
       if (mounted) setState(() => _error = 'Mic setting failed: $error');
     }
@@ -152,9 +260,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
     final next = !_speakerEnabled;
     try {
       await _engine?.setEnableSpeakerphone(next);
-        if (mounted) {
-        setState(() => _speakerEnabled = next);
-      }
+      if (mounted) setState(() => _speakerEnabled = next);
     } catch (error) {
       if (mounted) setState(() => _error = 'Audio output setting failed: $error');
     }
@@ -167,19 +273,22 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
     try { await engine?.release(); } catch (_) {}
     if (mounted) {
       setState(() {
-      _joined = false;
-      _joining = false;
-      _muted = false;
-      _speakerEnabled = false;
-      _remoteUsers.clear();
-      _mutedRemoteUsers.clear();
-      _participantNames.clear();
+        _joined = false;
+        _joining = false;
+        _muted = false;
+        _speakerEnabled = false;
+        _connectionStatus = _VoiceConnectionStatus.disconnected;
+        _connectionDetail = null;
+        _remoteUsers.clear();
+        _mutedRemoteUsers.clear();
+        _participantNames.clear();
       });
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     final engine = _engine;
     _engine = null;
     if (engine != null) {
@@ -189,6 +298,26 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
   }
 
   String _nameFor(int uid) => _participantNames[uid] ?? 'Player $uid';
+
+  Color get _statusColor {
+    switch (_connectionStatus) {
+      case _VoiceConnectionStatus.connected: return Colors.green;
+      case _VoiceConnectionStatus.reconnecting: return Colors.orange;
+      case _VoiceConnectionStatus.failed: return Colors.red;
+      case _VoiceConnectionStatus.joining: return Colors.blue;
+      case _VoiceConnectionStatus.disconnected: return Colors.blueGrey;
+    }
+  }
+
+  String get _statusLabel {
+    switch (_connectionStatus) {
+      case _VoiceConnectionStatus.connected: return 'Connected';
+      case _VoiceConnectionStatus.reconnecting: return 'Reconnecting…';
+      case _VoiceConnectionStatus.failed: return 'Disconnected';
+      case _VoiceConnectionStatus.joining: return 'Connecting…';
+      case _VoiceConnectionStatus.disconnected: return 'Not joined';
+    }
+  }
 
   @override
   Widget build(BuildContext context) => Card(
@@ -205,13 +334,22 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> {
           if (_joining) const SizedBox(width: 18, height: 18,
               child: CircularProgressIndicator(strokeWidth: 2)),
         ]),
+        if (_connectionDetail != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(children: [
+              Container(width: 7, height: 7, decoration: BoxDecoration(color: _statusColor, shape: BoxShape.circle)),
+              const SizedBox(width: 6),
+              Expanded(child: Text(_connectionDetail!, style: TextStyle(fontSize: 11, color: _statusColor))),
+            ]),
+          ),
         const SizedBox(height: 6),
         Wrap(spacing: 8, runSpacing: 4, children: [
           if (!_joined)
             FilledButton.tonalIcon(
               onPressed: _joining ? null : _join,
               icon: const Icon(Icons.mic),
-              label: const Text('Join Voice'),
+              label: Text(_connectionStatus == _VoiceConnectionStatus.failed ? 'Retry Voice' : 'Join Voice'),
             ),
           if (_joined) ...[
             OutlinedButton.icon(

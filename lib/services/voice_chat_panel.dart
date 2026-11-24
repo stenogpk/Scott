@@ -27,6 +27,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
   bool _muted = false;
   bool _speakerEnabled = false;
   bool _renewingToken = false;
+  final Set<int> _speakingUsers = <int>{};
   String? _error;
   String? _connectionDetail;
   _VoiceConnectionStatus _connectionStatus = _VoiceConnectionStatus.disconnected;
@@ -196,6 +197,15 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
           final currentEngine = _engine;
           if (currentEngine != null) unawaited(_renewVoiceToken(currentEngine));
         },
+        onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
+          if (!mounted) return;
+          final active = speakers.where((speaker) => speaker.volume > 8 && speaker.uid != 0).map((speaker) => speaker.uid).toSet();
+          setState(() {
+            _speakingUsers
+              ..clear()
+              ..addAll(active);
+          });
+        },
         onUserJoined: (connection, remoteUid, elapsed) {
           if (mounted) setState(() => _remoteUsers.add(remoteUid));
         },
@@ -204,6 +214,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
             setState(() {
               _remoteUsers.remove(remoteUid);
               _mutedRemoteUsers.remove(remoteUid);
+              _speakingUsers.remove(remoteUid);
             });
           }
         },
@@ -223,6 +234,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
           autoSubscribeVideo: false,
         ),
       );
+      try { await engine.enableAudioVolumeIndication(interval: 300, smooth: 3, reportVad: true); } catch (_) {}
       if (mounted) setState(() => _joining = false);
     } catch (error) {
       if (identical(_engine, engine)) _engine = null;
@@ -289,6 +301,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
         _connectionDetail = null;
         _remoteUsers.clear();
         _mutedRemoteUsers.clear();
+        _speakingUsers.clear();
         _participantNames.clear();
       });
     }
@@ -314,16 +327,6 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
       case _VoiceConnectionStatus.failed: return Colors.red;
       case _VoiceConnectionStatus.joining: return Colors.blue;
       case _VoiceConnectionStatus.disconnected: return Colors.blueGrey;
-    }
-  }
-
-  String get _statusLabel {
-    switch (_connectionStatus) {
-      case _VoiceConnectionStatus.connected: return 'Connected';
-      case _VoiceConnectionStatus.reconnecting: return 'Reconnecting…';
-      case _VoiceConnectionStatus.failed: return 'Disconnected';
-      case _VoiceConnectionStatus.joining: return 'Connecting…';
-      case _VoiceConnectionStatus.disconnected: return 'Not joined';
     }
   }
 
@@ -391,7 +394,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
               contentPadding: EdgeInsets.zero,
               leading: const CircleAvatar(radius: 16, child: Icon(Icons.person, size: 17)),
               title: Text(_nameFor(uid), style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: const Text('Connected'),
+              subtitle: Text(_speakingUsers.contains(uid) ? 'बोल रहे हैं' : 'Connected', style: TextStyle(color: _speakingUsers.contains(uid) ? Colors.green : null)),
               trailing: IconButton(
                 tooltip: _mutedRemoteUsers.contains(uid) ? 'Unmute this player' : 'Mute this player',
                 onPressed: () => _toggleRemoteSpeaker(uid),

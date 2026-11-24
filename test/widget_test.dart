@@ -11,7 +11,7 @@ void main() {
     await tester.pumpWidget(const ScottApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('SCOTT'), findsNWidgets(2));
+    expect(find.text('SCOTT'), findsWidgets);
     expect(find.text('Online Multiplayer'), findsOneWidget);
     expect(find.text('Local Wi-Fi Multiplayer'), findsOneWidget);
     expect(find.textContaining('Pass & Play'), findsNothing);

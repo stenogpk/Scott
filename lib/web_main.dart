@@ -9,6 +9,7 @@ import 'network/game_state_codec.dart';
 import 'game/scott_game_engine.dart';
 import 'screens/game_table_page.dart';
 import 'screens/scott_rules_page.dart';
+import 'screens/about_page.dart';
 import 'services/scott_audio.dart';
 
 const apiKey = String.fromEnvironment('FIREBASE_API_KEY');
@@ -108,11 +109,14 @@ class _ScottWebHomeState extends State<ScottWebHome> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('SCOTT • Online'), actions: [
+      IconButton(tooltip: 'About SCOTT', icon: const Icon(Icons.info_outline), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage()))),
       IconButton(tooltip: 'खेल के नियम / How to Play', icon: const Icon(Icons.menu_book_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage()))),
       IconButton(tooltip: 'Settings', icon: const Icon(Icons.settings_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottWebSettingsPage()))),
     ]),
     body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 720), child: ListView(padding: const EdgeInsets.all(24), children: [
       Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(gradient: const LinearGradient(colors:[Color(0xFF142B45),Color(0xFF247A83)]), borderRadius: BorderRadius.circular(24)), child: const Column(children:[Text('SCOTT',style:TextStyle(color:Colors.white,fontSize:36,fontWeight:FontWeight.w900,letterSpacing:4)),Text('Browser से भी खेलें • App जरूरी नहीं',style:TextStyle(color:Colors.white))])),
+      const SizedBox(height:14),
+      const NewGamesComingSoon(),
       const SizedBox(height:14),
       OutlinedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage())), icon: const Icon(Icons.menu_book_outlined), label: const Text('खेल के नियम / How to Play')),
       const SizedBox(height:18),
@@ -185,6 +189,7 @@ class _ScottWebSettingsPageState extends State<ScottWebSettingsPage> {
             const ListTile(leading: Icon(Icons.wifi_off_outlined), title: Text('Local Wi-Fi'),
               subtitle: Text('केवल Android ऐप में उपलब्ध; Browser में Local Wi-Fi Host/Join समर्थित नहीं है.')),
             const ListTile(title: Text('Developer'), subtitle: Text('Developed by Shartendu')),
+            ListTile(leading: const Icon(Icons.info_outline), title: const Text('About SCOTT'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage()))),
           ]),
         ),
       ),

@@ -22,7 +22,7 @@ if index.exists():
     <meta name="theme-color" content="#111111">
     '''
     if 'property="og:title"' not in html:
-        html = html.replace("</head>", tags + "\\n</head>")
+        html = html.replace("</head>", tags + "\n</head>")
     index.write_text(html)
 
 manifest = web / "manifest.json"
@@ -33,4 +33,4 @@ if manifest.exists():
     data["description"] = "SCOTT — an independent multi-game platform. Developed by Shartendu."
     data["background_color"] = "#111111"
     data["theme_color"] = "#111111"
-    manifest.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\\n")
+    manifest.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n")

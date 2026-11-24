@@ -1,12 +1,14 @@
 from pathlib import Path
 from PIL import Image
+import base64
+import io
 
 ROOT = Path("android/app/src/main/res")
 SOURCE = Path("assets/scott_launcher.png")
 if not SOURCE.is_file():
     raise SystemExit(f"Launcher image not found: {SOURCE}")
 
-image = Image.open(SOURCE).convert("RGBA")
+image = Image.open(io.BytesIO(base64.b64decode(SOURCE.read_text(encoding="ascii").strip()))).convert("RGBA")
 legacy = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
 foreground = {"mdpi": 108, "hdpi": 162, "xhdpi": 216, "xxhdpi": 324, "xxxhdpi": 432}
 

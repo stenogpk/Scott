@@ -11,6 +11,7 @@ import 'network/room_models.dart';
 import 'game/scott_game_engine.dart';
 import 'screens/game_table_page.dart';
 import 'screens/scott_rules_page.dart';
+import 'screens/about_page.dart';
 import 'network/game_state_codec.dart';
 import 'services/scott_audio.dart';
 
@@ -157,7 +158,7 @@ class _ScottHomePageState extends State<ScottHomePage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('SCOTT', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)), actions: [IconButton(tooltip: 'Edit Profile', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileEditorPage(onSaved: widget.onProfileChanged, onDeleted: widget.onProfileDeleted, initialName: widget.profileName, initialGender: widget.profileGender))), icon: const Icon(Icons.edit_outlined)), IconButton(tooltip: 'Settings', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottSettingsPage())), icon: const Icon(Icons.settings_outlined))]),
+    appBar: AppBar(title: const Text('SCOTT', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)), actions: [IconButton(tooltip: 'About SCOTT', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage())), icon: const Icon(Icons.info_outline)), IconButton(tooltip: 'Edit Profile', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileEditorPage(onSaved: widget.onProfileChanged, onDeleted: widget.onProfileDeleted, initialName: widget.profileName, initialGender: widget.profileGender))), icon: const Icon(Icons.edit_outlined)), IconButton(tooltip: 'Settings', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottSettingsPage())), icon: const Icon(Icons.settings_outlined))]),
     body: SafeArea(child: Center(child: SingleChildScrollView(
       padding: const EdgeInsets.all(22),
       child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 520), child: Column(
@@ -181,6 +182,8 @@ class _ScottHomePageState extends State<ScottHomePage> {
             ]),
           ),
           const SizedBox(height: 22),
+          const NewGamesComingSoon(),
+          const SizedBox(height: 14),
           Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)), child: Row(children: [const CircleAvatar(child: Icon(Icons.person)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(widget.profileName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)), Text(widget.profileGender, style: const TextStyle(color: Colors.blueGrey))])), IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileEditorPage(onSaved: widget.onProfileChanged, onDeleted: widget.onProfileDeleted, initialName: widget.profileName, initialGender: widget.profileGender))), icon: const Icon(Icons.edit_outlined))])),
           const SizedBox(height: 12),
           _HomeModeCard(icon: Icons.public, title: 'Online Multiplayer', subtitle: 'दूर बैठे दोस्तों के साथ Room Code से खेलें', onTap: () => _open(context, OnlineRoomPage(playerName: _playerName))),
@@ -230,6 +233,7 @@ class _ScottSettingsPageState extends State<ScottSettingsPage> {
         Slider(value: audio.volume, min: 0, max: 1, divisions: 10, label: '${(audio.volume * 100).round()}%', onChanged: (value) => setState(() => audio.volume = value)),
         FilledButton.tonalIcon(onPressed: () => audio.play('tap'), icon: const Icon(Icons.volume_up), label: const Text('Test Sound')),
         ListTile(leading: const Icon(Icons.menu_book_outlined), title: const Text('खेल के नियम / How to Play'), subtitle: const Text('हिंदी और English में पूरी नियमावली'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage()))),
+        ListTile(leading: const Icon(Icons.info_outline), title: const Text('About SCOTT'), subtitle: const Text('Developer और संपर्क जानकारी'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage()))),
         const Divider(height: 30),
         const ListTile(title: Text('Online Multiplayer'), subtitle: Text('Firebase Guest Authentication और Realtime Database')),
         const ListTile(title: Text('Local Wi-Fi'), subtitle: Text('एक ही Wi-Fi / Hotspot पर बिना इंटरनेट')),

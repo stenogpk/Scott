@@ -212,7 +212,12 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
         },
         onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
           if (!mounted) return;
-          final active = speakers.where((speaker) => speaker.volume > 8 && speaker.uid != 0).map((speaker) => speaker.uid).toSet();
+          final active = <int>{};
+          for (final speaker in speakers) {
+            final uid = speaker.uid;
+            final volume = speaker.volume ?? 0;
+            if (uid != null && uid != 0 && volume > 8) active.add(uid);
+          }
           setState(() {
             _speakingUsers
               ..clear()

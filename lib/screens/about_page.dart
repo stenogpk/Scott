@@ -64,3 +64,37 @@ class AboutPage extends StatelessWidget {
     ),
   );
 }
+
+class NewGamesComingSoon extends StatelessWidget {
+  const NewGamesComingSoon({super.key});
+
+  @override
+  Widget build(BuildContext context) => Card(
+    elevation: 0,
+    color: const Color(0xFF111111),
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(20),
+      side: const BorderSide(color: Color(0xFFD6A83D), width: 1.5),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(children: [
+        const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.auto_awesome, color: Color(0xFFFFD56A)),
+          SizedBox(width: 8),
+          Text('NEW GAMES', style: TextStyle(color: Color(0xFFFFD56A), fontWeight: FontWeight.w900, letterSpacing: 2)),
+        ]),
+        const SizedBox(height: 14),
+        const Icon(Icons.style_rounded, size: 54, color: Color(0xFFFFD56A)),
+        const SizedBox(height: 6),
+        const Text('SCOTT', style: TextStyle(color: Color(0xFFFFD56A), fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: 4)),
+        const SizedBox(height: 8),
+        const Text('NEW GAMES COMING SOON...', textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900, letterSpacing: 1)),
+        const SizedBox(height: 5),
+        const Text('More games. More fun. One platform.',
+          textAlign: TextAlign.center, style: TextStyle(color: Colors.white70, fontSize: 12)),
+      ]),
+    ),
+  );
+}

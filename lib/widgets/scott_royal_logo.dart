@@ -1,8 +1,7 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 
 /// Reuses the exact SCOTT Royal logo already used by the Android launcher.
 class ScottRoyalLogo extends StatefulWidget {

@@ -13,6 +13,7 @@ import '../services/scott_audio.dart';
 import '../services/voice_chat_panel.dart';
 import '../game/commentary.dart';
 import 'scott_rules_page.dart';
+import 'about_page.dart';
 typedef RoomAction = ({String playerId, Map<String, dynamic> action});
 
 class HostGameTablePage extends StatefulWidget {
@@ -586,6 +587,7 @@ class _RemoteGameTablePageState extends State<RemoteGameTablePage> {
         title: Text(phase == GamePhase.gameComplete.name ? 'विजेता' : 'SCOTT • राउंड ${_public['roundNumber']}'),
         actions: [
           IconButton(tooltip: 'खेल के नियम / How to Play', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage())), icon: const Icon(Icons.menu_book_outlined)),
+          IconButton(tooltip: 'About SCOTT', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage())), icon: const Icon(Icons.info_outline)),
           IconButton(tooltip: 'Scoreboard', onPressed: _scoreboard, icon: const Icon(Icons.leaderboard_outlined)),
         ],
       ),

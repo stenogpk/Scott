@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:material_ui/material_ui.dart';
 import 'package:http/http.dart' as http;
 import 'package:permission_handler/permission_handler.dart';
@@ -27,15 +27,23 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
   bool _muted = false;
   bool _speakerEnabled = false;
   bool _renewingToken = false;
+  bool _wantsVoice = false;
+  bool _manualLeave = false;
+  bool _tearingDown = false;
+  bool _recoveryInProgress = false;
+  int _retryAttempt = 0;
+  int _engineGeneration = 0;
   final Set<int> _speakingUsers = <int>{};
   String? _error;
   String? _connectionDetail;
+  String? _lastDisconnectReason;
   _VoiceConnectionStatus _connectionStatus = _VoiceConnectionStatus.disconnected;
   final Map<int, String> _participantNames = {};
   final Set<int> _remoteUsers = <int>{};
   final Set<int> _mutedRemoteUsers = <int>{};
   final Map<int, String> _networkQuality = <int, String>{};
   Timer? _joinTimeout;
+  Timer? _reconnectTimer;
 
   @override
   void initState() {
@@ -43,14 +51,19 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
     WidgetsBinding.instance.addObserver(this);
   }
 
+  void _log(String message) {
+    // Never log Firebase/Agora tokens or user credentials.
+    debugPrint('[SCOTT-VOICE][${widget.roomCode}] $message');
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Do not force a leave/rejoin here: Agora owns transient network recovery.
-    // Record the lifecycle transition for the status panel and re-check state
-    // when the user returns to the game.
-    if (state == AppLifecycleState.resumed && mounted && _joined) {
-      setState(() => _connectionDetail = 'ऐप वापस सक्रिय हुआ');
+    _log('appLifecycle=$state wantsVoice=$_wantsVoice joined=$_joined');
+    if (state == AppLifecycleState.resumed && mounted && _wantsVoice && !_joined && !_joining) {
+      _scheduleReconnect('ऐप वापस सक्रिय हुआ; Voice कनेक्शन जाँच रहे हैं…', immediate: true);
     }
+    // Do not leave on inactive/paused: iOS can briefly report these during
+    // permission prompts, audio-session interruptions, and system overlays.
   }
 
   Future<Map<String, dynamic>> _requestVoiceToken() async {
@@ -71,12 +84,13 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
   }
 
   Future<void> _renewVoiceToken(RtcEngine engine) async {
-    if (_renewingToken || !identical(_engine, engine)) return;
+    if (_renewingToken || !identical(_engine, engine) || !_wantsVoice) return;
     _renewingToken = true;
     try {
       final payload = await _requestVoiceToken();
-      if (!identical(_engine, engine)) return;
+      if (!identical(_engine, engine) || !_wantsVoice) return;
       await engine.renewToken(payload['token'] as String);
+      _log('tokenRenewed');
       if (mounted) {
         setState(() {
           _connectionDetail = 'Voice Token नवीनीकृत';
@@ -84,7 +98,9 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
         });
       }
     } catch (error) {
-      if (mounted) setState(() => _error = 'Voice Token renewal failed: $error');
+      _log('tokenRenewalFailed=$error');
+      if (mounted) setState(() => _error = 'Token renewal में समस्या; दोबारा कनेक्ट कर रहे हैं…');
+      _scheduleReconnect('Token नवीनीकरण विफल; दोबारा जुड़ रहे हैं…');
     } finally {
       _renewingToken = false;
     }
@@ -95,32 +111,61 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
     setState(() {
       _connectionStatus = status;
       _connectionDetail = detail;
-      if (status == _VoiceConnectionStatus.connected) _error = null;
-      if (status == _VoiceConnectionStatus.failed) {
-        _joined = false;
+      if (status == _VoiceConnectionStatus.connected) {
+        _joined = true;
         _joining = false;
+        _retryAttempt = 0;
+        _error = null;
+      } else if (status == _VoiceConnectionStatus.reconnecting ||
+          status == _VoiceConnectionStatus.failed ||
+          status == _VoiceConnectionStatus.disconnected) {
+        _joined = false;
       }
     });
   }
 
-  Future<void> _join() async {
-    if (_joining || _joined) return;
+  void _scheduleReconnect(String reason, {bool immediate = false}) {
+    if (!mounted || !_wantsVoice || _manualLeave || _reconnectTimer?.isActive == true) return;
+    _joinTimeout?.cancel();
+    _joined = false;
+    _joining = false;
+    _setConnectionStatus(_VoiceConnectionStatus.reconnecting, reason);
+    final seconds = immediate ? 1 : (_retryAttempt < 5 ? (2 << _retryAttempt) : 30);
+    _retryAttempt++;
+    _log('reconnectScheduled attempt=$_retryAttempt delay=${seconds}s reason=$reason');
+    _reconnectTimer = Timer(Duration(seconds: seconds), () {
+      _reconnectTimer = null;
+      if (mounted && _wantsVoice && !_manualLeave && !_joining && !_joined) {
+        unawaited(_join(isRecovery: true));
+      }
+    });
+  }
+
+  Future<void> _disposeEngine(RtcEngine? engine) async {
+    if (engine == null) return;
+    _tearingDown = true;
+    try { await engine.leaveChannel(); } catch (error) { _log('leaveDuringRecovery=$error'); }
+    try { await engine.release(); } catch (error) { _log('releaseDuringRecovery=$error'); }
+    _tearingDown = false;
+  }
+
+  Future<void> _join({bool isRecovery = false}) async {
+    if (_joining || _joined || !_wantsVoice || _manualLeave) return;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     setState(() {
       _joining = true;
-      _connectionStatus = _VoiceConnectionStatus.joining;
-      _connectionDetail = 'Voice Room से जुड़ रहे हैं…';
+      _connectionStatus = isRecovery ? _VoiceConnectionStatus.reconnecting : _VoiceConnectionStatus.joining;
+      _connectionDetail = isRecovery ? 'Voice अपने-आप दोबारा जुड़ रहा है…' : 'Voice Room से जुड़ रहे हैं…';
       _error = null;
     });
     RtcEngine? engine;
+    final generation = ++_engineGeneration;
     try {
-      // A terminal SDK failure can leave the previous engine allocated.
-      // Release it before creating a fresh engine for an explicit retry.
       final previousEngine = _engine;
       _engine = null;
-      if (previousEngine != null) {
-        try { await previousEngine.leaveChannel(); } catch (_) {}
-        try { await previousEngine.release(); } catch (_) {}
-      }
+      await _disposeEngine(previousEngine);
+      if (!mounted || !_wantsVoice || _manualLeave || generation != _engineGeneration) return;
       if (!kIsWeb) {
         final permission = await Permission.microphone.request();
         if (!permission.isGranted) {
@@ -128,6 +173,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
         }
       }
       final payload = await _requestVoiceToken();
+      if (!mounted || !_wantsVoice || _manualLeave || generation != _engineGeneration) return;
       final appId = payload['appId'] as String;
       final channel = payload['channel'] as String;
       final token = payload['token'] as String;
@@ -152,66 +198,65 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
       await engine.enableAudio();
       engine.registerEventHandler(RtcEngineEventHandler(
         onJoinChannelSuccess: (connection, elapsed) {
-          if (mounted && identical(_engine, engine)) {
-            setState(() {
-              _joinTimeout?.cancel();
-              _joined = true;
-              _joining = false;
-              _connectionStatus = _VoiceConnectionStatus.connected;
-              _connectionDetail = 'Voice Connected';
-              _error = null;
-            });
-          }
+          if (!mounted || !identical(_engine, engine)) return;
+          _joinTimeout?.cancel();
+          _setConnectionStatus(_VoiceConnectionStatus.connected, 'Voice Connected');
+          _log('joinSuccess uid=${connection.localUid} elapsed=$elapsed');
         },
         onNetworkQuality: (connection, remoteUid, txQuality, rxQuality) {
-          if (!mounted) return;
+          if (!mounted || !identical(_engine, engine)) return;
           setState(() => _networkQuality[remoteUid] = rxQuality.name);
         },
         onUserMuteAudio: (connection, remoteUid, muted) {
-          if (!mounted) return;
+          if (!mounted || !identical(_engine, engine)) return;
           setState(() {
             if (muted) { _mutedRemoteUsers.add(remoteUid); } else { _mutedRemoteUsers.remove(remoteUid); }
           });
         },
         onRejoinChannelSuccess: (connection, elapsed) {
+          if (!identical(_engine, engine)) return;
           _setConnectionStatus(_VoiceConnectionStatus.connected, 'कनेक्शन वापस आ गया');
+          _log('rejoinSuccess elapsed=$elapsed');
         },
         onConnectionStateChanged: (connection, state, reason) {
+          if (!identical(_engine, engine) || _tearingDown || _manualLeave) return;
+          _lastDisconnectReason = reason.name;
+          _log('connectionState=$state reason=$reason');
           switch (state) {
             case ConnectionStateType.connectionStateConnected:
+              _joinTimeout?.cancel();
               _setConnectionStatus(_VoiceConnectionStatus.connected, 'Voice Connected');
               break;
             case ConnectionStateType.connectionStateReconnecting:
               _setConnectionStatus(_VoiceConnectionStatus.reconnecting, 'नेटवर्क दोबारा जुड़ रहा है…');
               break;
             case ConnectionStateType.connectionStateFailed:
-              _setConnectionStatus(_VoiceConnectionStatus.failed, 'कनेक्शन बहाल नहीं हो पाया');
+              _scheduleReconnect('कनेक्शन विफल (Reason: ${reason.name}); दोबारा प्रयास जारी…');
               break;
             case ConnectionStateType.connectionStateConnecting:
               _setConnectionStatus(_VoiceConnectionStatus.joining, 'Voice Room से जुड़ रहे हैं…');
               break;
             case ConnectionStateType.connectionStateDisconnected:
-              // A deliberate Leave also produces Disconnected; do not turn it
-              // into an error or start a second join from this callback.
-              if (_connectionStatus != _VoiceConnectionStatus.disconnected) {
-                _setConnectionStatus(_VoiceConnectionStatus.disconnected, 'Voice Disconnected');
-              }
+              _scheduleReconnect('Voice कनेक्शन टूट गया (Reason: ${reason.name}); दोबारा जुड़ रहे हैं…');
               break;
           }
         },
         onConnectionInterrupted: (connection) {
+          if (!identical(_engine, engine) || _manualLeave) return;
+          _log('connectionInterrupted');
           _setConnectionStatus(_VoiceConnectionStatus.reconnecting, 'नेटवर्क कनेक्शन बाधित है…');
         },
         onConnectionLost: (connection) {
-          // Agora continues its own retry process after this callback.
-          _setConnectionStatus(_VoiceConnectionStatus.reconnecting, 'नेटवर्क कमजोर है; दोबारा जुड़ने की कोशिश जारी है…');
+          if (!identical(_engine, engine) || _manualLeave) return;
+          _log('connectionLost');
+          _setConnectionStatus(_VoiceConnectionStatus.reconnecting, 'नेटवर्क कमजोर है; कनेक्शन बहाल कर रहे हैं…');
         },
         onTokenPrivilegeWillExpire: (connection, token) {
-          final currentEngine = _engine;
-          if (currentEngine != null) unawaited(_renewVoiceToken(currentEngine));
+          if (!identical(_engine, engine)) return;
+          unawaited(_renewVoiceToken(engine!));
         },
         onAudioVolumeIndication: (connection, speakers, speakerNumber, totalVolume) {
-          if (!mounted) return;
+          if (!mounted || !identical(_engine, engine)) return;
           final active = <int>{};
           for (final speaker in speakers) {
             final uid = speaker.uid;
@@ -225,10 +270,11 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
           });
         },
         onUserJoined: (connection, remoteUid, elapsed) {
-          if (mounted) setState(() => _remoteUsers.add(remoteUid));
+          if (mounted && identical(_engine, engine)) setState(() => _remoteUsers.add(remoteUid));
         },
         onUserOffline: (connection, remoteUid, reason) {
-          if (mounted) {
+          if (mounted && identical(_engine, engine)) {
+            _log('remoteUserOffline uid=$remoteUid reason=$reason');
             setState(() {
               _remoteUsers.remove(remoteUid);
               _mutedRemoteUsers.remove(remoteUid);
@@ -238,18 +284,16 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
           }
         },
         onError: (err, msg) {
-          if (mounted) setState(() => _error = 'Agora error $err: $msg');
+          if (!mounted || !identical(_engine, engine)) return;
+          _log('agoraError code=$err message=$msg');
+          setState(() => _error = 'Agora error $err: $msg');
         },
       ));
       _joinTimeout?.cancel();
-      _joinTimeout = Timer(const Duration(seconds: 25), () {
-        if (!mounted || _joined || !identical(_engine, engine)) return;
-        setState(() {
-          _joining = false;
-          _connectionStatus = _VoiceConnectionStatus.failed;
-          _connectionDetail = 'Voice कनेक्शन में समय लग रहा है';
-          _error = '25 सेकंड में Voice Room से कनेक्शन नहीं हुआ। Retry Voice दबाएँ।';
-        });
+      _joinTimeout = Timer(const Duration(seconds: 30), () {
+        if (!mounted || _joined || !identical(_engine, engine) || !_wantsVoice) return;
+        _log('joinTimeout generation=$generation');
+        _scheduleReconnect('Voice कनेक्शन में देरी; अपने-आप फिर कोशिश हो रही है…');
       });
       await engine.joinChannel(
         token: token,
@@ -263,21 +307,22 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
           autoSubscribeVideo: false,
         ),
       );
-      try { await engine.enableAudioVolumeIndication(interval: 300, smooth: 3, reportVad: true); } catch (_) {}
-      if (mounted && !_joined) setState(() => _joining = false);
+      try { await engine.enableAudioVolumeIndication(interval: 300, smooth: 3, reportVad: true); } catch (error) { _log('volumeIndicationUnavailable=$error'); }
+      if (mounted && !_joined && _joining) setState(() => _joining = false);
     } catch (error) {
       _joinTimeout?.cancel();
       if (identical(_engine, engine)) _engine = null;
-      try { await engine?.leaveChannel(); } catch (_) {}
-      try { await engine?.release(); } catch (_) {}
-      if (mounted) {
+      await _disposeEngine(engine);
+      _log('joinAttemptFailed recovery=$isRecovery error=$error');
+      if (mounted && _wantsVoice && !_manualLeave) {
         setState(() {
           _joining = false;
           _joined = false;
-          _connectionStatus = _VoiceConnectionStatus.failed;
-          _connectionDetail = 'Voice में जुड़ना विफल हुआ';
-          _error = error.toString().replaceFirst('Bad state: ', '');
+          _connectionStatus = _VoiceConnectionStatus.reconnecting;
+          _connectionDetail = 'Voice कनेक्शन नहीं हुआ; फिर कोशिश होगी…';
+          _error = null;
         });
+        _scheduleReconnect('Voice कनेक्शन असफल; स्वतः दोबारा प्रयास जारी…');
       }
     }
   }
@@ -317,18 +362,25 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
   }
 
   Future<void> _leave() async {
+    _manualLeave = true;
+    _wantsVoice = false;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _joinTimeout?.cancel();
+    ++_engineGeneration;
     final engine = _engine;
     _engine = null;
-    try { await engine?.leaveChannel(); } catch (_) {}
-    try { await engine?.release(); } catch (_) {}
+    await _disposeEngine(engine);
     if (mounted) {
       setState(() {
         _joined = false;
         _joining = false;
         _muted = false;
         _speakerEnabled = false;
+        _retryAttempt = 0;
         _connectionStatus = _VoiceConnectionStatus.disconnected;
-        _connectionDetail = null;
+        _connectionDetail = 'आपने Voice Chat छोड़ दी';
+        _error = null;
         _remoteUsers.clear();
         _mutedRemoteUsers.clear();
         _speakingUsers.clear();
@@ -341,7 +393,11 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _wantsVoice = false;
+    _manualLeave = true;
+    _reconnectTimer?.cancel();
     _joinTimeout?.cancel();
+    ++_engineGeneration;
     final engine = _engine;
     _engine = null;
     if (engine != null) {
@@ -374,8 +430,8 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
           const Expanded(child: Text('Voice Chat', style: TextStyle(fontWeight: FontWeight.w900))),
           if (_joined) Text('${_remoteUsers.length + 1} जुड़े',
               style: const TextStyle(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w700)),
-          if (_joining) const SizedBox(width: 18, height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2)),
+          if (_joining || _connectionStatus == _VoiceConnectionStatus.reconnecting)
+            const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
         ]),
         if (_connectionDetail != null)
           Padding(
@@ -388,11 +444,21 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
           ),
         const SizedBox(height: 6),
         Wrap(spacing: 8, runSpacing: 4, children: [
-          if (!_joined)
+          if (!_joined && !_wantsVoice)
             FilledButton.tonalIcon(
-              onPressed: _joining ? null : _join,
+              onPressed: _joining ? null : () {
+                _manualLeave = false;
+                _wantsVoice = true;
+                _retryAttempt = 0;
+                unawaited(_join());
+              },
               icon: const Icon(Icons.mic),
-              label: Text(_connectionStatus == _VoiceConnectionStatus.failed ? 'Retry Voice' : 'Join Voice'),
+              label: const Text('Join Voice'),
+            ),
+          if (_wantsVoice && !_joined)
+            OutlinedButton(
+              onPressed: _leave,
+              child: const Text('Cancel Reconnect'),
             ),
           if (_joined) ...[
             OutlinedButton.icon(
@@ -442,7 +508,7 @@ class _VoiceChatPanelState extends State<VoiceChatPanel> with WidgetsBindingObse
             padding: const EdgeInsets.only(top: 4),
             child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
           ),
-        if (!_joined && !_joining && _error == null)
+        if (!_joined && !_wantsVoice)
           const Text('सभी खिलाड़ी एक ही Room Code पर Voice Chat में जुड़ सकते हैं।',
               style: TextStyle(fontSize: 11, color: Colors.blueGrey)),
       ]),

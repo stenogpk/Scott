@@ -29,6 +29,8 @@ class CallBreakEngine {
   int roundsToPlay = 5;
   CardSuit? leadSuit;
   final List<({int player, PlayingCard card})> trick = [];
+  List<({int player, PlayingCard card})> lastTrick = [];
+  int? lastTrickWinner;
   bool complete = false;
   bool redealRequired = false;
 
@@ -51,6 +53,8 @@ class CallBreakEngine {
       players[i].tricks = 0;
     }
     trick.clear();
+    lastTrick = [];
+    lastTrickWinner = null;
     trickNumber = 0;
     leadSuit = null;
     complete = false;
@@ -100,6 +104,8 @@ class CallBreakEngine {
     trick.add((player: player, card: card));
     if (trick.length < 4) { turn = (turn + 1) % 4; return; }
     final winner = _winner();
+    lastTrick = List.of(trick);
+    lastTrickWinner = winner;
     players[winner].tricks++;
     trickNumber++;
     trick.clear();
@@ -143,6 +149,8 @@ class CallBreakEngine {
       'tricks': p.tricks, 'score': p.score, 'handCount': p.hand.length,
     }],
     'trick': [for (final t in trick) {'player': t.player, 'card': cardToJson(t.card)}],
+    'lastTrick': [for (final t in lastTrick) {'player': t.player, 'card': cardToJson(t.card)}],
+    'lastTrickWinner': lastTrickWinner,
   };
 
   Map<String, List<Map<String, dynamic>>> privateHands() => {

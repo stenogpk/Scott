@@ -19,6 +19,7 @@ void main() {
 
   test('requires following the led suit when possible', () {
     final game = makeGame()..deal();
+    for (final player in game.players) { player.bid = 3; }
     final lead = game.players[game.turn].hand.first;
     game.play(game.turn, lead);
     final next = game.turn;

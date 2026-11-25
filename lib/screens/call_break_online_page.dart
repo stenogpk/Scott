@@ -286,7 +286,10 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
           const Text('आपके पत्ते',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:16)),
           Wrap(spacing:6,runSpacing:6,children:[for(final c in game.players[me].hand)
             ActionChip(
-              label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black)),
+              label: Text.rich(TextSpan(children: [
+                TextSpan(text: c.rank.shortLabel, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                TextSpan(text: c.suit.symbol, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900)),
+              ]), style: TextStyle(color: c.suit.isRed ? const Color(0xFFD21F38) : const Color(0xFF18231F))),
               onPressed:!game.bidding && !game.complete && game.turn==me && game.legalCards(me).contains(c)?()=>_play(c):null,
             )]),
         ],
@@ -346,7 +349,10 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
     const Text('आपके पत्ते',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:16)),
     Wrap(spacing:6,runSpacing:6,children:[for(final c in hand)
       ActionChip(
-        label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black)),
+        label: Text.rich(TextSpan(children: [
+          TextSpan(text: c.rank.shortLabel, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          TextSpan(text: c.suit.symbol, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900)),
+        ]), style: TextStyle(color: c.suit.isRed ? const Color(0xFFD21F38) : const Color(0xFF18231F))),
         onPressed:!bidding && turn==me && (state['leadSuit']==null || hand.where((x)=>x.suit.name==state['leadSuit']).isEmpty || c.suit.name==state['leadSuit'])
           ?()=>_send({'type':'play','card':CallBreakEngine.cardToJson(c)}) : null,
       )]),
@@ -403,42 +409,6 @@ Widget _playedCardsSummary({
           ),
       ]),
     ]),
-  );
-}
-
-Widget _handCardChip(PlayingCard card, {required bool enabled, required VoidCallback onTap}) {
-  final red = card.suit.isRed;
-  return Material(
-    color: Colors.transparent,
-    child: InkWell(
-      onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        width: 76,
-        height: 58,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: enabled ? const Color(0xFFF7FBF9) : const Color(0xFFE2E9E6),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: enabled ? const Color(0xFFB7D8CB) : const Color(0xFF91A49C),
-            width: enabled ? 2 : 1,
-          ),
-          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0,2))],
-        ),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text(card.rank.shortLabel, style: TextStyle(
-            color: red ? const Color(0xFFC6283D) : const Color(0xFF18231F),
-            fontSize: 18, fontWeight: FontWeight.w800,
-          )),
-          const SizedBox(width: 3),
-          Text(card.suit.symbol, style: TextStyle(
-            color: red ? const Color(0xFFD51F37) : const Color(0xFF18231F),
-            fontSize: 23, fontWeight: FontWeight.w900,
-          )),
-        ]),
-      ),
-    ),
   );
 }
 

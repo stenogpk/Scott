@@ -371,7 +371,7 @@ Widget _handCardChip(PlayingCard card, {required bool enabled, required VoidCall
           boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0,2))],
         ),
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Text(card.rank.label, style: TextStyle(
+          Text(card.rank.shortLabel, style: TextStyle(
             color: red ? const Color(0xFFC6283D) : const Color(0xFF18231F),
             fontSize: 18, fontWeight: FontWeight.w800,
           )),

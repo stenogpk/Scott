@@ -40,3 +40,6 @@ The GitHub Actions workflow generates original sound effects, runs flutter analy
 
 ## Developer
 Developed by Shartendu.
+
+## Android release readiness
+- Removed unused Call Break screen declarations and resolved the Flutter analyzer findings before the next Android release build.

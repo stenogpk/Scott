@@ -454,7 +454,7 @@ Widget _callBreakTable({
               left: pos.dx, top: pos.dy,
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 1050),
-                opacity: winner != null ? 0.12 : 1,
+                opacity: winner != null ? 0 : 1,
                 child: Transform.scale(
                   scale: winner != null ? 0.62 : 1,
                   child: playingCard(play),

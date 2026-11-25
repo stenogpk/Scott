@@ -413,9 +413,9 @@ Widget _callBreakTable({
     child: LayoutBuilder(builder: (context, bounds) {
       final w = bounds.maxWidth;
       final cardPositions = <int, Offset>{
-        0: Offset(w / 2 - 24, 94),
+        0: Offset(w / 2 - 24, 224),
         1: Offset(w - 76, 150),
-        2: Offset(w / 2 - 24, 224),
+        2: Offset(w / 2 - 24, 94),
         3: const Offset(8, 150),
       };
       return Stack(clipBehavior: Clip.hardEdge, children: [

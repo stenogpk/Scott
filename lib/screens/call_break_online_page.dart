@@ -10,6 +10,7 @@ import '../game/playing_card.dart';
 import '../services/voice_chat_panel.dart';
 import '../services/scott_audio.dart';
 import 'about_page.dart';
+import '../widgets/call_break_logo.dart';
 import 'scott_rules_page.dart';
 import 'package:confetti/confetti.dart';
 
@@ -138,10 +139,7 @@ class _CallBreakOnlinePageState extends State<CallBreakOnlinePage> {
     body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 560), child: ListView(padding: const EdgeInsets.all(18), children: [
       Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF142B45), Color(0xFF247A83)]), borderRadius: BorderRadius.circular(20)), child: const Column(children: [
         SizedBox(height: 4),
-        SizedBox(width: 176, height: 176, child: ClipRRect(
-          borderRadius: BorderRadius.all(Radius.circular(18)),
-          child: Image.asset('assets/call_break_logo.png', fit: BoxFit.contain, filterQuality: FilterQuality.high),
-        )),
+        CallBreakLogo(size: 184),
         SizedBox(height: 8),
         Text('लकड़ी • CALL BREAK', textAlign: TextAlign.center,
           style: TextStyle(color: Color(0xFFD9B76E), fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: .6)),
@@ -285,7 +283,7 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
   @override Widget build(BuildContext context) {
     final mine = game.players[game.turn].id == widget.service.userId;
     final me = game.players.indexWhere((p)=>p.id==widget.service.userId);
-    return Scaffold(appBar:AppBar(title:const Column(crossAxisAlignment:CrossAxisAlignment.start,mainAxisSize:MainAxisSize.min,children:[Text('लकड़ी • CALL BREAK',maxLines:1,style:TextStyle(fontSize:16,fontWeight:FontWeight.w800)),Text('Room code',style:TextStyle(fontSize:10))]),actions:[IconButton(tooltip:'About SCOTT',onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AboutPage())),icon:const Icon(Icons.info_outline)),IconButton(tooltip:'नियम',onPressed:()=>showModalBottomSheet(context:context,builder:(_)=>const _CallBreakRules()),icon:const Icon(Icons.menu_book))]),
+    return Scaffold(appBar:AppBar(title:Column(crossAxisAlignment:CrossAxisAlignment.start,mainAxisSize:MainAxisSize.min,children:[const Text('लकड़ी • CALL BREAK',maxLines:1,style:TextStyle(fontSize:16,fontWeight:FontWeight.w800)),Text('Room ${widget.roomCode}',style:const TextStyle(fontSize:10))]),actions:[IconButton(tooltip:'About SCOTT',onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AboutPage())),icon:const Icon(Icons.info_outline)),IconButton(tooltip:'नियम',onPressed:()=>showModalBottomSheet(context:context,builder:(_)=>const _CallBreakRules()),icon:const Icon(Icons.menu_book))]),
       body:Stack(children:[SafeArea(child:Container(decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Color(0xFF102D27),Color(0xFF071D19)])),child:ListView(padding:const EdgeInsets.all(12),children:[
         _tableHeader(game),
         const SizedBox(height:10),

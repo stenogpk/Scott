@@ -24,7 +24,11 @@ void main() {
     game.play(game.turn, lead);
     final next = game.turn;
     final legal = game.legalCards(next);
-    expect(legal.every((c) => c.suit == lead.suit), isTrue);
+    if (game.players[next].hand.any((c) => c.suit == lead.suit)) {
+      expect(legal.every((c) => c.suit == lead.suit), isTrue);
+    } else {
+      expect(legal.length, game.players[next].hand.length);
+    }
   });
 
   test('rejects a combined bid below nine and resets bidding', () {

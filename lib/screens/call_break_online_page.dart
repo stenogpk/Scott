@@ -284,20 +284,8 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
         ),
         if(me>=0) ...[
           const Text('आपके पत्ते',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:16)),
-          Wrap(spacing:6,runSpacing:6,children:[for(final c in game.players[me].hand)
-            ActionChip(
-              label: Text.rich(TextSpan(children: [
-                TextSpan(text: c.rank.shortLabel, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-                TextSpan(text: c.suit.symbol, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900)),
-              ]), style: TextStyle(color: c.suit.isRed ? const Color(0xFFD21F38) : const Color(0xFF18231F))),
-              onPressed:!game.bidding && !game.complete && game.turn==me && game.legalCards(me).contains(c)?()=>_play(c):null,
-            )]),
+          Wrap(spacing:6,runSpacing:6,children:[for(final c in game.players[me].hand)ActionChip(label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black)),onPressed:!game.bidding && !game.complete && game.turn==me && game.legalCards(me).contains(c)?()=>_play(c):null)]),
         ],
-        _playedCardsSummary(
-          players: [for(final p in game.players) p.name],
-          plays: [for(final t in (game.trick.isNotEmpty ? game.trick : game.lastTrick)) {'player':t.player,'card':t.card.toString()}],
-          title: game.trick.isNotEmpty ? 'इस ट्रिक में अब तक खेले गए पत्ते' : 'पिछली ट्रिक के पत्ते',
-        ),
         if(game.bidding && mine) Wrap(spacing:6,children:[for(var n=1;n<=13;n++)ActionChip(label:Text('$n'),onPressed:()=>_bid(n))]),
         if(!game.bidding) Text('टेबल: ${game.trick.map((t)=>'${game.players[t.player].name}: ${t.card}').join('  •  ')}'),
         if(game.complete) Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(children:[
@@ -347,23 +335,7 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
       isMine: !bidding && turn == me,
     ),
     const Text('आपके पत्ते',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:16)),
-    Wrap(spacing:6,runSpacing:6,children:[for(final c in hand)
-      ActionChip(
-        label: Text.rich(TextSpan(children: [
-          TextSpan(text: c.rank.shortLabel, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-          TextSpan(text: c.suit.symbol, style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w900)),
-        ]), style: TextStyle(color: c.suit.isRed ? const Color(0xFFD21F38) : const Color(0xFF18231F))),
-        onPressed:!bidding && turn==me && (state['leadSuit']==null || hand.where((x)=>x.suit.name==state['leadSuit']).isEmpty || c.suit.name==state['leadSuit'])
-          ?()=>_send({'type':'play','card':CallBreakEngine.cardToJson(c)}) : null,
-      )]),
-    _playedCardsSummary(
-      players: [for(final p in players) (p as Map)['name'].toString()],
-      plays: [for(final t in ((state['trick'] as List?)?.isNotEmpty == true ? state['trick'] as List : (state['lastTrick'] as List? ?? const []))) {
-        'player':(t as Map)['player'],
-        'card':CallBreakEngine.cardFromJson(Map<String,dynamic>.from(t['card'] as Map)).toString(),
-      }],
-      title: ((state['trick'] as List?)?.isNotEmpty == true) ? 'इस ट्रिक में अब तक खेले गए पत्ते' : 'पिछली ट्रिक के पत्ते',
-    ),
+    Wrap(spacing:6,runSpacing:6,children:[for(final c in hand.where((c)=>bidding || state['leadSuit']==null || hand.where((x)=>x.suit.name==state['leadSuit']).isEmpty || c.suit.name==state['leadSuit']))ActionChip(label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black)),onPressed:!bidding && turn==me ? ()=>_send({'type':'play','card':CallBreakEngine.cardToJson(c)}) : null)]),
     if(bidding&&turn==me)Wrap(spacing:6,children:[for(var n=1;n<=13;n++)ActionChip(label:Text('$n'),onPressed:()=>_send({'type':'bid','bid':n}))]),
     if(!bidding) Text('टेबल: ${((state['trick'] as List?)??const []).map((t)=>'${(players[(t as Map)['player'] as int] as Map)['name']}: ${CallBreakEngine.cardFromJson(Map<String,dynamic>.from(t['card'] as Map))}').join(' • ')}'),
     if(state['complete']==true)Card(child:Column(children:[const Text('राउंड पूरा'),for(final p in players)ListTile(title:Text(p['name'].toString()),trailing:Text('${p['score']}'))])),
@@ -373,44 +345,6 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
   ])));
 }
 
-
-Widget _playedCardsSummary({
-  required List<String> players,
-  required List<Map<String,dynamic>> plays,
-  required String title,
-}) {
-  if (plays.isEmpty) return const SizedBox.shrink();
-  return Container(
-    width: double.infinity,
-    margin: const EdgeInsets.only(top: 12, bottom: 8),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: const Color(0xFF173D32),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: const Color(0xFF527C69)),
-    ),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w900)),
-      const SizedBox(height: 8),
-      Wrap(spacing: 8, runSpacing: 8, children: [
-        for (final play in plays)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            decoration: BoxDecoration(color: const Color(0xFFF7FBF9), borderRadius: BorderRadius.circular(9)),
-            child: Text(
-              '${players[(play['player'] as num).toInt()]} : ${play['card']}',
-              style: TextStyle(
-                color: (play['card'] as String).contains('♥') || (play['card'] as String).contains('♦')
-                  ? const Color(0xFFB51F32) : const Color(0xFF18251F),
-                fontWeight: FontWeight.w900,
-                fontSize: 13,
-              ),
-            ),
-          ),
-      ]),
-    ]),
-  );
-}
 
 Widget _callBreakTable({
   required List<Map<String,dynamic>> players,

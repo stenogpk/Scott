@@ -90,10 +90,38 @@ class CallBreakEngine {
   }
 
   List<PlayingCard> legalCards(int player) {
-    final hand = players[player].hand;
-    if (leadSuit == null) return hand;
+    return legalCardsForHand(
+      players[player].hand,
+      leadSuit: leadSuit,
+      trick: trick,
+    );
+  }
+
+  /// Call Break follow-suit rule: if a player can overtake the highest
+  /// card currently played in the led suit, they must play a higher card.
+  /// Any higher card is valid; playing the highest available card is not
+  /// required. If none can overtake, any card of the led suit is valid.
+  /// When void in the led suit, any card (including an optional spade cut)
+  /// may be played.
+  static List<PlayingCard> legalCardsForHand(
+    List<PlayingCard> hand, {
+    required CardSuit? leadSuit,
+    required List<({int player, PlayingCard card})> trick,
+  }) {
+    if (leadSuit == null) return List.of(hand);
     final follow = hand.where((c) => c.suit == leadSuit).toList();
-    return follow.isEmpty ? hand : follow;
+    if (follow.isEmpty) return List.of(hand);
+
+    final highestInLeadSuit = trick
+        .where((play) => play.card.suit == leadSuit)
+        .fold<int>(0, (best, play) =>
+            power(play.card) > best ? power(play.card) : best);
+    if (highestInLeadSuit == 0) return follow;
+
+    final higher = follow
+        .where((card) => power(card) > highestInLeadSuit)
+        .toList();
+    return higher.isNotEmpty ? higher : follow;
   }
 
   void play(int player, PlayingCard card) {

@@ -275,9 +275,15 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
           winner: game.trick.isEmpty ? game.lastTrickWinner : null,
         ),
         const Divider(color:Color(0x55FFFFFF)),
-        Text(game.bidding ? (game.players[game.turn].isBot?'Bot बोली लगा रहा है…':'आपकी बोली चुनें') : game.complete ? 'राउंड पूरा' : '${game.players[game.turn].name} की चाल',style:const TextStyle(fontWeight:FontWeight.w900,fontSize:17)),
+        _turnBanner(
+          title: game.bidding
+              ? (game.players[game.turn].isBot ? 'Bot बोली लगा रहा है' : 'आपकी बोली')
+              : game.complete ? 'राउंड पूरा' : '${game.players[game.turn].name} की चाल',
+          subtitle: game.bidding ? 'बोली का क्रम चल रहा है' : 'अब इसी खिलाड़ी की बारी है',
+          isMine: mine && !game.bidding && !game.complete,
+        ),
         if(me>=0) ...[
-          const Text('आपके पत्ते',style:TextStyle(fontWeight:FontWeight.w900)),
+          const Text('आपके पत्ते',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:16)),
           Wrap(spacing:6,runSpacing:6,children:[for(final c in game.players[me].hand)ActionChip(label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black)),onPressed:!game.bidding && !game.complete && game.turn==me && game.legalCards(me).contains(c)?()=>_play(c):null)]),
         ],
         if(game.bidding && mine) Wrap(spacing:6,children:[for(var n=1;n<=13;n++)ActionChip(label:Text('$n'),onPressed:()=>_bid(n))]),
@@ -323,8 +329,12 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
       turn: turn, me: me,
       winner: (state['trick'] as List? ?? const []).isEmpty ? state['lastTrickWinner'] as int? : null,
     ),
-    Text(bidding?'बोली का समय':'${(players[turn] as Map)['name']} की चाल',style:const TextStyle(fontWeight:FontWeight.w900,fontSize:17)),
-    const Text('आपके पत्ते',style:TextStyle(fontWeight:FontWeight.w900)),
+    _turnBanner(
+      title: bidding ? '${(players[turn] as Map)['name']} की बोली' : '${(players[turn] as Map)['name']} की चाल',
+      subtitle: bidding ? 'बोली का क्रम चल रहा है' : 'अब इसी खिलाड़ी की बारी है',
+      isMine: !bidding && turn == me,
+    ),
+    const Text('आपके पत्ते',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:16)),
     Wrap(spacing:6,runSpacing:6,children:[for(final c in hand.where((c)=>bidding || state['leadSuit']==null || hand.where((x)=>x.suit.name==state['leadSuit']).isEmpty || c.suit.name==state['leadSuit']))ActionChip(label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black)),onPressed:!bidding && turn==me ? ()=>_send({'type':'play','card':CallBreakEngine.cardToJson(c)}) : null)]),
     if(bidding&&turn==me)Wrap(spacing:6,children:[for(var n=1;n<=13;n++)ActionChip(label:Text('$n'),onPressed:()=>_send({'type':'bid','bid':n}))]),
     if(!bidding) Text('टेबल: ${((state['trick'] as List?)??const []).map((t)=>'${(players[(t as Map)['player'] as int] as Map)['name']}: ${CallBreakEngine.cardFromJson(Map<String,dynamic>.from(t['card'] as Map))}').join(' • ')}'),
@@ -418,6 +428,14 @@ Widget _callBreakTable({
         2: Offset(w / 2 - 24, 94),
         3: const Offset(8, 150),
       };
+      final winnerRelative = winner == null ? -1 : (winner - self + 4) % 4;
+      final collectTarget = winnerRelative == 0
+          ? Offset(w / 2 - 24, 300)
+          : winnerRelative == 1
+              ? Offset(w - 74, 142)
+              : winnerRelative == 2
+                  ? Offset(w / 2 - 24, 8)
+                  : const Offset(4, 142);
       return Stack(clipBehavior: Clip.hardEdge, children: [
         const Positioned(top: 83, left: 0, right: 0, child: Center(child: Text('SCOTT  •  CALL BREAK', style: TextStyle(color: Color(0x77FFFFFF), letterSpacing: 3, fontSize: 10, fontWeight: FontWeight.w900)))),
         Positioned(top: 8, left: w/2-58, child: seat(top)),
@@ -428,20 +446,36 @@ Widget _callBreakTable({
           Builder(builder: (_) {
             final player = (play['player'] as num).toInt();
             final relative = (player - self + 4) % 4;
-            final pos = cardPositions[relative]!;
+            final pos = winner != null ? collectTarget : cardPositions[relative]!;
             return AnimatedPositioned(
               key: ValueKey('play-$player-${play['card']}'),
-              duration: const Duration(milliseconds: 380),
-              curve: Curves.easeOutBack,
+              duration: Duration(milliseconds: winner != null ? 1050 : 420),
+              curve: winner != null ? Curves.easeInOutCubic : Curves.easeOutBack,
               left: pos.dx, top: pos.dy,
-              child: playingCard(play),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 1050),
+                opacity: winner != null ? 0.12 : 1,
+                child: Transform.scale(
+                  scale: winner != null ? 0.62 : 1,
+                  child: playingCard(play),
+                ),
+              ),
             );
           }),
         if (winner != null && trick.length == 4)
           Positioned(top: 184, left: 0, right: 0, child: Center(
-            child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-              decoration: BoxDecoration(color: const Color(0xDD08271F), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFFFD56A))),
-              child: Text('${players[winner]['name']} ने ट्रिक जीती', style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 11, fontWeight: FontWeight.w900)),
+            child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFFFFE08A), Color(0xFFD4A83F)]),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: Colors.white, width: 1.5),
+                boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 12, offset: Offset(0,4))],
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.emoji_events, color: Color(0xFF38280A), size: 18),
+                const SizedBox(width: 6),
+                Text('${players[winner]['name']}  •  इस ट्रिक का विजेता', style: const TextStyle(color: Color(0xFF38280A), fontSize: 12, fontWeight: FontWeight.w900)),
+              ]),
             ),
           )),
         if (trick.isEmpty)
@@ -450,6 +484,28 @@ Widget _callBreakTable({
     }),
   );
 }
+
+Widget _turnBanner({required String title, required String subtitle, required bool isMine}) => Container(
+  margin: const EdgeInsets.symmetric(vertical: 10),
+  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+  decoration: BoxDecoration(
+    gradient: LinearGradient(colors: isMine
+      ? const [Color(0xFF236B50), Color(0xFF164A3A)]
+      : const [Color(0xFF173B36), Color(0xFF102B28)]),
+    borderRadius: BorderRadius.circular(16),
+    border: Border.all(color: isMine ? const Color(0xFFFFD56A) : const Color(0x6688B9A5), width: isMine ? 2 : 1),
+    boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 9, offset: Offset(0,4))],
+  ),
+  child: Row(children: [
+    Icon(isMine ? Icons.touch_app : Icons.hourglass_top_rounded, color: const Color(0xFFFFD56A), size: 25),
+    const SizedBox(width: 12),
+    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17)),
+      Text(subtitle, style: const TextStyle(color: Color(0xFFD7E9E0), fontSize: 12, fontWeight: FontWeight.w600)),
+    ])),
+    if (isMine) const Text('आपकी बारी', style: TextStyle(color: Color(0xFFFFD56A), fontWeight: FontWeight.w900, fontSize: 11)),
+  ]),
+);
 
 Widget _tableHeader(CallBreakEngine g)=>Container(padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:const Color(0xFF142B45),borderRadius:BorderRadius.circular(16)),child:Column(children:[
   Text('राउंड ${g.round}/${g.roundsToPlay} • ट्रिक ${g.trickNumber+1}/13',style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800)),

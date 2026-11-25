@@ -36,8 +36,7 @@ void main() {
       final player = game.turn;
       game.setBid(player, 1);
     }
-    final last = game.turn;
-    expect(() => game.setBid(last, 1), throwsStateError);
+    expect(() => game.setBid(game.turn, 1), throwsStateError);
     expect(game.players.every((p) => p.bid == 0), isTrue);
     expect(game.bidding, isTrue);
   });
@@ -50,18 +49,26 @@ void main() {
     expect(game.privateHands().values.every((hand) => hand.length == 13), isTrue);
   });
 
-  test('follows standard Call Break scoring for an underbid', () {
+  test('plays all 13 tricks and calculates bid scores', () {
     final game = makeGame()..deal();
+    const bids = [3, 2, 2, 2];
     for (var i = 0; i < 4; i++) {
-      final player = game.players[i];
-      player.bid = 3;
-      player.tricks = i == 0 ? 2 : 3;
+      game.players[i].bid = bids[i];
     }
-    for (var i = 0; i < 13; i++) {
-      // Score calculation is exercised through a deterministic completed round below.
-      game.players[i % 4].hand.clear();
+    var guard = 0;
+    while (!game.complete && guard < 52) {
+      final player = game.turn;
+      game.play(player, game.legalCards(player).first);
+      guard++;
     }
-    // A public-state sanity assertion keeps the score fields serializable.
-    expect(game.publicState()['players'], hasLength(4));
+    expect(game.complete, isTrue);
+    expect(game.trickNumber, 13);
+    for (final p in game.players) {
+      final extra = p.tricks - p.bid;
+      final expected = (extra < 0 || p.tricks > p.bid * 2)
+          ? -p.bid.toDouble()
+          : p.bid + extra / 10;
+      expect(p.score, expected);
+    }
   });
 }

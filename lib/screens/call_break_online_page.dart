@@ -266,7 +266,7 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
   int get turn=>(state['turn'] as num).toInt();
   bool get bidding=>state['bidding']==true;
   Future<void> _send(Map<String,dynamic> a)async{try{await widget.sendAction(a);}catch(e){if(mounted)setState(()=>notice=e.toString());}}
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:Text('CALL BREAK • ${widget.roomCode}')),body:SafeArea(child:ListView(padding:const EdgeInsets.all(12),children:[
+  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:Text('CALL BREAK • ${widget.roomCode}'),actions:[IconButton(tooltip:'About SCOTT',onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AboutPage())),icon:const Icon(Icons.info_outline)),IconButton(tooltip:'नियम',onPressed:()=>showModalBottomSheet(context:context,builder:(_)=>const _CallBreakRules()),icon:const Icon(Icons.menu_book))]),body:SafeArea(child:ListView(padding:const EdgeInsets.all(12),children:[
     _guestHeader(state),
     for(var i=0;i<players.length;i++)_guestPlayer(players[i] as Map,i==turn,i==me),
     const Divider(),

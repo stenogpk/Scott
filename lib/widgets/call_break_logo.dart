@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Compact gold-and-maroon Call Break emblem, matching the approved game identity.
 class CallBreakLogo extends StatelessWidget {

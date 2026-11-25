@@ -11,7 +11,6 @@ import '../services/voice_chat_panel.dart';
 import '../services/scott_audio.dart';
 import 'about_page.dart';
 import '../widgets/call_break_logo.dart';
-import 'scott_rules_page.dart';
 import 'package:confetti/confetti.dart';
 
 const _cbApiKey = String.fromEnvironment('FIREBASE_API_KEY');
@@ -411,7 +410,7 @@ Widget _callBreakTable({
         const SizedBox(height: 3),
         Text('बोली ${p['bid'] == null || p['bid'] == 0 ? '—' : p['bid']}  •  ट्रिक ${p['tricks'] ?? 0}',
           style: const TextStyle(color: Color(0xFFD5E7DE), fontSize: 9, fontWeight: FontWeight.w600)),
-        Text((p['isBot'] == true ? 'BOT  •  ' : '') + 'स्कोर ${(p['score'] as num? ?? 0).toStringAsFixed(1)}',
+        Text('${p['isBot'] == true ? 'BOT  •  ' : ''}स्कोर ${(p['score'] as num? ?? 0).toStringAsFixed(1)}',
           style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 9, fontWeight: FontWeight.w800)),
       ]),
     );
@@ -426,7 +425,7 @@ Widget _callBreakTable({
         child: ScaleTransition(scale: Tween<double>(begin: .72, end: 1).animate(animation), child: child),
       ),
       child: Container(
-        key: ValueKey('${play['player']}-${card}'),
+        key: ValueKey('${play['player']}-$card'),
         width: 48, height: 68,
         padding: const EdgeInsets.all(5),
         decoration: BoxDecoration(
@@ -541,9 +540,7 @@ Widget _tableHeader(CallBreakEngine g)=>Container(padding:const EdgeInsets.all(1
   Text('राउंड ${g.round}/${g.roundsToPlay} • ट्रिक ${g.trickNumber+1}/13',style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800)),
   Text(g.bidding?'कुल बोली ${g.totalBids} (कम-से-कम 9)':'स्पेड ♠ ट्रम्प',style:const TextStyle(color:Color(0xFFD9B76E),fontWeight:FontWeight.w900,fontSize:18)),
 ]));
-Widget _playerLine(CallBreakPlayer p,bool active,bool me)=>Card(color:active?const Color(0xFFE2F4EF):null,child:ListTile(dense:true,leading:Icon(me?Icons.person_pin:Icons.person),title:Text('${p.name}${p.isBot?' • Bot':''}'),subtitle:Text('बोली ${p.bid==0?'—':p.bid} • ट्रिक ${p.tricks}'),trailing:Text(p.score.toStringAsFixed(1),style:const TextStyle(fontWeight:FontWeight.w900))));
 Widget _guestHeader(Map<String,dynamic> s)=>Container(padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:const Color(0xFF142B45),borderRadius:BorderRadius.circular(16)),child:Column(children:[Text('राउंड ${s['round']}/${s['roundsToPlay']} • ट्रिक ${(s['trickNumber'] as num)+1}/13',style:const TextStyle(color:Colors.white)),Text('कुल बोली ${s['totalBids']} • स्पेड ट्रम्प',style:const TextStyle(color:Color(0xFFD9B76E),fontWeight:FontWeight.w900,fontSize:18))]));
-Widget _guestPlayer(Map p,bool active,bool me)=>Card(color:active?const Color(0xFFE2F4EF):null,child:ListTile(dense:true,title:Text('${p['name']}${p['isBot']==true?' • Bot':''}'),subtitle:Text('बोली ${p['bid']==0?'—':p['bid']} • ट्रिक ${p['tricks']}'),trailing:Text((p['score'] as num).toStringAsFixed(1))));
 class _CallBreakRules extends StatelessWidget { const _CallBreakRules(); @override Widget build(BuildContext context)=>const SafeArea(child:Padding(padding:EdgeInsets.all(20),child:SingleChildScrollView(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
   Text('लकड़ी • CALL BREAK के नियम',style:TextStyle(fontSize:22,fontWeight:FontWeight.w900)),
   Text('चार खिलाड़ी • 52 पत्ते • प्रत्येक को 13 पत्ते। स्पेड (♠) ट्रम्प है। हर खिलाड़ी 1 से 13 तक बोली लगाएगा और सभी बोलियों का योग कम-से-कम 9 होना चाहिए।'),

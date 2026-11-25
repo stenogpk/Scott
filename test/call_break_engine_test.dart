@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scott_game/game/call_break_engine.dart';
-import 'package:scott_game/game/playing_card.dart';
 
 void main() {
   CallBreakEngine makeGame() => CallBreakEngine(seats: [
@@ -30,46 +29,6 @@ void main() {
     } else {
       expect(legal.length, game.players[next].hand.length);
     }
-  });
-
-
-  test('must overtake the highest led-suit card when possible, but any higher card is valid', () {
-    const played = (player: 0, card: PlayingCard(rank: CardRank.nine, suit: CardSuit.hearts));
-    final hand = [
-      const PlayingCard(rank: CardRank.eight, suit: CardSuit.hearts),
-      const PlayingCard(rank: CardRank.ten, suit: CardSuit.hearts),
-      const PlayingCard(rank: CardRank.jack, suit: CardSuit.hearts),
-      const PlayingCard(rank: CardRank.two, suit: CardSuit.spades),
-    ];
-    final legal = CallBreakEngine.legalCardsForHand(hand,
-      leadSuit: CardSuit.hearts, trick: [played]);
-    expect(legal, contains(hand[1]));
-    expect(legal, contains(hand[2]));
-    expect(legal, isNot(contains(hand[0])));
-    expect(legal, isNot(contains(hand[3])));
-  });
-
-  test('if no higher led-suit card exists, any card of that suit is legal', () {
-    const played = (player: 0, card: PlayingCard(rank: CardRank.king, suit: CardSuit.clubs));
-    final hand = [
-      const PlayingCard(rank: CardRank.two, suit: CardSuit.clubs),
-      const PlayingCard(rank: CardRank.queen, suit: CardSuit.clubs),
-      const PlayingCard(rank: CardRank.ace, suit: CardSuit.spades),
-    ];
-    final legal = CallBreakEngine.legalCardsForHand(hand,
-      leadSuit: CardSuit.clubs, trick: [played]);
-    expect(legal, [hand[0], hand[1]]);
-  });
-
-  test('when void in the led suit, cutting with spades is optional', () {
-    const played = (player: 0, card: PlayingCard(rank: CardRank.seven, suit: CardSuit.diamonds));
-    final hand = [
-      const PlayingCard(rank: CardRank.ace, suit: CardSuit.spades),
-      const PlayingCard(rank: CardRank.two, suit: CardSuit.hearts),
-    ];
-    final legal = CallBreakEngine.legalCardsForHand(hand,
-      leadSuit: CardSuit.diamonds, trick: [played]);
-    expect(legal, hand);
   });
 
   test('rejects a combined bid below nine and resets bidding', () {

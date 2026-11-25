@@ -12,6 +12,7 @@ import 'screens/scott_rules_page.dart';
 import 'screens/about_page.dart';
 import 'services/scott_audio.dart';
 import 'widgets/scott_royal_logo.dart';
+import 'widgets/new_games_card.dart';
 
 const apiKey = String.fromEnvironment('FIREBASE_API_KEY');
 const databaseUrl = String.fromEnvironment('FIREBASE_DATABASE_URL');
@@ -117,7 +118,7 @@ class _ScottWebHomeState extends State<ScottWebHome> {
     body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 720), child: ListView(padding: const EdgeInsets.all(24), children: [
       Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(gradient: const LinearGradient(colors:[Color(0xFF142B45),Color(0xFF247A83)]), borderRadius: BorderRadius.circular(24)), child: const Column(children:[ScottRoyalLogo(size:116),SizedBox(height:10),Text('SCOTT',style:TextStyle(color:Colors.white,fontSize:36,fontWeight:FontWeight.w900,letterSpacing:4)),SizedBox(height:6),Text('Browser से भी खेलें • App जरूरी नहीं',style:TextStyle(color:Colors.white))])),
       const SizedBox(height:14),
-      const NewGamesComingSoon(),
+      const NewGamesCard(),
       const SizedBox(height:14),
       OutlinedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage())), icon: const Icon(Icons.menu_book_outlined), label: const Text('खेल के नियम / How to Play')),
       const SizedBox(height:18),

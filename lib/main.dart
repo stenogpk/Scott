@@ -13,6 +13,7 @@ import 'screens/game_table_page.dart';
 import 'screens/scott_rules_page.dart';
 import 'screens/about_page.dart';
 import 'widgets/scott_royal_logo.dart';
+import 'widgets/new_games_card.dart';
 import 'network/game_state_codec.dart';
 import 'services/scott_audio.dart';
 
@@ -183,7 +184,7 @@ class _ScottHomePageState extends State<ScottHomePage> {
             ]),
           ),
           const SizedBox(height: 22),
-          const NewGamesComingSoon(),
+          const NewGamesCard(),
           const SizedBox(height: 14),
           Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)), child: Row(children: [const CircleAvatar(child: Icon(Icons.person)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(widget.profileName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)), Text(widget.profileGender, style: const TextStyle(color: Colors.blueGrey))])), IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileEditorPage(onSaved: widget.onProfileChanged, onDeleted: widget.onProfileDeleted, initialName: widget.profileName, initialGender: widget.profileGender))), icon: const Icon(Icons.edit_outlined))])),
           const SizedBox(height: 12),

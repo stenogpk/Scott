@@ -225,11 +225,12 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
         for(var i=0;i<4;i++) _playerLine(game.players[i],i==game.turn,i==me),
         const Divider(),
         Text(game.bidding ? (game.players[game.turn].isBot?'Bot बोली लगा रहा है…':'आपकी बोली चुनें') : game.complete ? 'राउंड पूरा' : '${game.players[game.turn].name} की चाल',style:const TextStyle(fontWeight:FontWeight.w900,fontSize:17)),
-        if(game.bidding && mine) Wrap(spacing:6,children:[for(var n=1;n<=13;n++)ActionChip(label:Text('$n'),onPressed:()=>_bid(n))]),
-        if(!game.bidding) ...[
-          Text('टेबल: ${game.trick.map((t)=>'${game.players[t.player].name}: ${t.card}').join('  •  ')}'),
-          if(me>=0 && !game.complete && game.turn==me) Wrap(spacing:6,runSpacing:6,children:[for(final c in game.players[me].hand)ActionChip(label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black)),onPressed:game.legalCards(me).contains(c)?()=>_play(c):null)]),
+        if(me>=0) ...[
+          const Text('आपके पत्ते',style:TextStyle(fontWeight:FontWeight.w900)),
+          Wrap(spacing:6,runSpacing:6,children:[for(final c in game.players[me].hand)ActionChip(label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black)),onPressed:!game.bidding && !game.complete && game.turn==me && game.legalCards(me).contains(c)?()=>_play(c):null)]),
         ],
+        if(game.bidding && mine) Wrap(spacing:6,children:[for(var n=1;n<=13;n++)ActionChip(label:Text('$n'),onPressed:()=>_bid(n))]),
+        if(!game.bidding) Text('टेबल: ${game.trick.map((t)=>'${game.players[t.player].name}: ${t.card}').join('  •  ')}'),
         if(game.complete) Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(children:[
           Text(game.matchComplete?'मैच विजेता: ${game.winnerName}':'राउंड स्कोर',style:const TextStyle(fontSize:20,fontWeight:FontWeight.w900)),
           for(final p in game.players)ListTile(title:Text(p.name),subtitle:Text('बोली ${p.bid} • ट्रिक ${p.tricks}'),trailing:Text(p.score.toStringAsFixed(1))),
@@ -265,11 +266,10 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
     for(var i=0;i<players.length;i++)_guestPlayer(players[i] as Map,i==turn,i==me),
     const Divider(),
     Text(bidding?'बोली का समय':'${(players[turn] as Map)['name']} की चाल',style:const TextStyle(fontWeight:FontWeight.w900,fontSize:17)),
+    const Text('आपके पत्ते',style:TextStyle(fontWeight:FontWeight.w900)),
+    Wrap(spacing:6,runSpacing:6,children:[for(final c in hand.where((c)=>bidding || state['leadSuit']==null || hand.where((x)=>x.suit.name==state['leadSuit']).isEmpty || c.suit.name==state['leadSuit']))ActionChip(label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black)),onPressed:!bidding && turn==me ? ()=>_send({'type':'play','card':CallBreakEngine.cardToJson(c)}) : null)]),
     if(bidding&&turn==me)Wrap(spacing:6,children:[for(var n=1;n<=13;n++)ActionChip(label:Text('$n'),onPressed:()=>_send({'type':'bid','bid':n}))]),
-    if(!bidding) ...[
-      Text('टेबल: ${((state['trick'] as List?)??const []).map((t)=>'${(players[(t as Map)['player'] as int] as Map)['name']}: ${CallBreakEngine.cardFromJson(Map<String,dynamic>.from(t['card'] as Map))}').join(' • ')}'),
-      if(turn==me)Wrap(spacing:6,children:[for(final c in hand.where((c)=>state['leadSuit']==null || hand.where((x)=>x.suit.name==state['leadSuit']).isEmpty || c.suit.name==state['leadSuit']))ActionChip(label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black)),onPressed:()=>_send({'type':'play','card':CallBreakEngine.cardToJson(c)}))]),
-    ],
+    if(!bidding) Text('टेबल: ${((state['trick'] as List?)??const []).map((t)=>'${(players[(t as Map)['player'] as int] as Map)['name']}: ${CallBreakEngine.cardFromJson(Map<String,dynamic>.from(t['card'] as Map))}').join(' • ')}'),
     if(state['complete']==true)Card(child:Column(children:[const Text('राउंड पूरा'),for(final p in players)ListTile(title:Text(p['name'].toString()),trailing:Text('${p['score']}'))])),
     if(notice!=null)Text(notice!,style:const TextStyle(color:Colors.red)),
     VoiceChatPanel(roomCode:widget.roomCode,getFirebaseIdToken:widget.getToken),

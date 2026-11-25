@@ -164,6 +164,7 @@ class _CallBreakHostTable extends StatefulWidget {
   @override State<_CallBreakHostTable> createState() => _CallBreakHostTableState();
 }
 class _CallBreakHostTableState extends State<_CallBreakHostTable> {
+  late final ConfettiController _confetti = ConfettiController(duration: const Duration(seconds: 3));
   StreamSubscription<List<Map<String, dynamic>>>? _actions;
   String? _notice;
   bool _busy = false;

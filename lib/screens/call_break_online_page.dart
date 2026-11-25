@@ -181,9 +181,24 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
     final index = game.players.indexWhere((p)=>p.id==pid);
     if(index<0 || game.turn!=index || game.players[index].isBot) return;
     try {
-      if(action['type']=='bid') { game.setBid(index, (action['bid'] as num).toInt()); unawaited(ScottAudio.instance.play('tap')); }
-      else if(action['type']=='play') { final c=CallBreakEngine.cardFromJson(Map<String,dynamic>.from(action['card'] as Map)); game.play(index,c); unawaited(ScottAudio.instance.play('card_discard')); if(game.lastTrick.length==4){unawaited(ScottAudio.instance.play('winner')); _confetti.play();} }
-      _driveBots();
+      var trickCompleted = false;
+      if(action['type']=='bid') {
+        game.setBid(index, (action['bid'] as num).toInt());
+        unawaited(ScottAudio.instance.play('tap'));
+      } else if(action['type']=='play') {
+        final c=CallBreakEngine.cardFromJson(Map<String,dynamic>.from(action['card'] as Map));
+        final previousTrick = game.trickNumber;
+        game.play(index,c);
+        trickCompleted = game.trickNumber > previousTrick;
+        unawaited(ScottAudio.instance.play('card_discard'));
+        if(trickCompleted) { unawaited(ScottAudio.instance.play('winner')); _confetti.play(); }
+      }
+      if (mounted) setState(() {});
+      unawaited(() async {
+        await _sync();
+        if (trickCompleted) await Future<void>.delayed(const Duration(milliseconds: 1250));
+        await _driveBots();
+      }());
     } catch(e) { _say(e.toString()); unawaited(_sync()); unawaited(_driveBots()); }
   }
 
@@ -196,17 +211,33 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
         if (game.complete) break;
         final p = game.players[game.turn];
         if (!p.isBot) break;
-        await Future<void>.delayed(const Duration(milliseconds: 450));
+        await Future<void>.delayed(const Duration(milliseconds: 720));
+        var trickCompleted = false;
         if (game.bidding) {
-          try { game.setBid(game.turn, game.estimate(p.hand)); }
-          catch (_) { /* low aggregate bid is reset by engine; continue bidding */ }
+          try {
+            game.setBid(game.turn, game.estimate(p.hand));
+            unawaited(ScottAudio.instance.play('tap'));
+          } catch (_) {
+            // A low aggregate bid resets the bidding; publish that reset as a new step.
+          }
         } else {
           final legal = game.legalCards(game.turn)..sort((a,b)=>CallBreakEngine.power(a).compareTo(CallBreakEngine.power(b)));
+          final previousTrick = game.trickNumber;
           game.play(game.turn, legal.first);
+          trickCompleted = game.trickNumber > previousTrick;
+          unawaited(ScottAudio.instance.play('card_discard'));
+          if (trickCompleted) {
+            unawaited(ScottAudio.instance.play('winner'));
+            _confetti.play();
+          }
+        }
+        // Publish every individual action so all browsers see the same turn sequence.
+        if (mounted) setState(() {});
+        await _sync();
+        if (trickCompleted) {
+          await Future<void>.delayed(const Duration(milliseconds: 1350));
         }
       }
-      await _sync();
-      if (mounted) setState(() {});
     } catch(e) { _say(e.toString()); }
     finally { _busy = false; }
   }
@@ -215,7 +246,17 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
     try { game.setBid(game.turn, bid); unawaited(ScottAudio.instance.play('tap')); await _driveBots(); } catch(e) { _say(e.toString()); await _sync(); await _driveBots(); }
   }
   Future<void> _play(PlayingCard card) async {
-    try { game.play(game.turn, card); unawaited(ScottAudio.instance.play('card_discard')); if(game.lastTrick.length==4){unawaited(ScottAudio.instance.play('winner')); _confetti.play();} await _driveBots(); } catch(e) { _say(e.toString()); }
+    try {
+      final previousTrick = game.trickNumber;
+      game.play(game.turn, card);
+      final trickCompleted = game.trickNumber > previousTrick;
+      unawaited(ScottAudio.instance.play('card_discard'));
+      if (trickCompleted) { unawaited(ScottAudio.instance.play('winner')); _confetti.play(); }
+      if (mounted) setState(() {});
+      await _sync();
+      if (trickCompleted) await Future<void>.delayed(const Duration(milliseconds: 1350));
+      await _driveBots();
+    } catch(e) { _say(e.toString()); }
   }
   Future<void> _next() async { unawaited(ScottAudio.instance.play('shuffle')); game.nextRound(); await _sync(); if(mounted)setState(()=>_notice=null); await _driveBots(); }
   void _say(String value) { if(mounted)setState(()=>_notice=value.replaceFirst('Bad state: ','')); }

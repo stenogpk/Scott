@@ -7,6 +7,10 @@ import '../network/room_models.dart';
 import '../game/call_break_engine.dart';
 import '../game/playing_card.dart';
 import '../services/voice_chat_panel.dart';
+import '../services/scott_audio.dart';
+import 'about_page.dart';
+import 'scott_rules_page.dart';
+import 'package:confetti/confetti.dart';
 
 const _cbApiKey = String.fromEnvironment('FIREBASE_API_KEY');
 const _cbDatabaseUrl = String.fromEnvironment('FIREBASE_DATABASE_URL');
@@ -165,7 +169,7 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
   bool _busy = false;
   CallBreakEngine get game => widget.engine;
   @override void initState() { super.initState(); _actions = widget.service.watchActions(widget.roomCode).listen((items) { for (final item in items) { _remoteAction(item); } }, onError: (e)=>_say(e.toString())); _driveBots(); }
-  @override void dispose() { unawaited(_actions?.cancel()); super.dispose(); }
+  @override void dispose() { unawaited(_actions?.cancel()); _confetti.dispose(); super.dispose(); }
 
   Future<void> _sync() => widget.service.publishGameState(widget.roomCode, game.publicState(), game.privateHands());
   void _remoteAction(Map<String,dynamic> item) {
@@ -176,8 +180,8 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
     final index = game.players.indexWhere((p)=>p.id==pid);
     if(index<0 || game.turn!=index || game.players[index].isBot) return;
     try {
-      if(action['type']=='bid') { game.setBid(index, (action['bid'] as num).toInt()); }
-      else if(action['type']=='play') { final c=CallBreakEngine.cardFromJson(Map<String,dynamic>.from(action['card'] as Map)); game.play(index,c); }
+      if(action['type']=='bid') { game.setBid(index, (action['bid'] as num).toInt()); unawaited(ScottAudio.instance.play('tap')); }
+      else if(action['type']=='play') { final c=CallBreakEngine.cardFromJson(Map<String,dynamic>.from(action['card'] as Map)); game.play(index,c); unawaited(ScottAudio.instance.play('card_discard')); if(game.lastTrick.length==4){unawaited(ScottAudio.instance.play('winner')); _confetti.play();} }
       _driveBots();
     } catch(e) { _say(e.toString()); unawaited(_sync()); unawaited(_driveBots()); }
   }
@@ -207,23 +211,24 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
   }
 
   Future<void> _bid(int bid) async {
-    try { game.setBid(game.turn, bid); await _driveBots(); } catch(e) { _say(e.toString()); await _sync(); await _driveBots(); }
+    try { game.setBid(game.turn, bid); unawaited(ScottAudio.instance.play('tap')); await _driveBots(); } catch(e) { _say(e.toString()); await _sync(); await _driveBots(); }
   }
   Future<void> _play(PlayingCard card) async {
-    try { game.play(game.turn, card); await _driveBots(); } catch(e) { _say(e.toString()); }
+    try { game.play(game.turn, card); unawaited(ScottAudio.instance.play('card_discard')); if(game.lastTrick.length==4){unawaited(ScottAudio.instance.play('winner')); _confetti.play();} await _driveBots(); } catch(e) { _say(e.toString()); }
   }
-  Future<void> _next() async { game.nextRound(); await _sync(); if(mounted)setState(()=>_notice=null); await _driveBots(); }
+  Future<void> _next() async { unawaited(ScottAudio.instance.play('shuffle')); game.nextRound(); await _sync(); if(mounted)setState(()=>_notice=null); await _driveBots(); }
   void _say(String value) { if(mounted)setState(()=>_notice=value.replaceFirst('Bad state: ','')); }
 
   @override Widget build(BuildContext context) {
     final mine = game.players[game.turn].id == widget.service.userId;
     final me = game.players.indexWhere((p)=>p.id==widget.service.userId);
-    return Scaffold(appBar:AppBar(title:Text('CALL BREAK • ${widget.roomCode}'),actions:[IconButton(onPressed:()=>showModalBottomSheet(context:context,builder:(_)=>const _CallBreakRules()),icon:const Icon(Icons.menu_book))]),
-      body:SafeArea(child:ListView(padding:const EdgeInsets.all(12),children:[
+    return Scaffold(appBar:AppBar(title:Text('CALL BREAK • ${widget.roomCode}'),actions:[IconButton(tooltip:'About SCOTT',onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AboutPage())),icon:const Icon(Icons.info_outline)),IconButton(tooltip:'नियम',onPressed:()=>showModalBottomSheet(context:context,builder:(_)=>const _CallBreakRules()),icon:const Icon(Icons.menu_book))]),
+      body:Stack(children:[SafeArea(child:Container(decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Color(0xFF102D27),Color(0xFF071D19)])),child:ListView(padding:const EdgeInsets.all(12),children:[
         _tableHeader(game),
         const SizedBox(height:10),
         for(var i=0;i<4;i++) _playerLine(game.players[i],i==game.turn,i==me),
-        const Divider(),
+        Container(margin:const EdgeInsets.symmetric(vertical:12),padding:const EdgeInsets.all(18),decoration:BoxDecoration(color:const Color(0xFF174B3B),borderRadius:BorderRadius.circular(28),border:Border.all(color:const Color(0xFFD9B76E),width:2),boxShadow:const [BoxShadow(color:Colors.black45,blurRadius:16,offset:Offset(0,6))]),child:Column(children:[const Text('TABLE • TRICK ARENA',style:TextStyle(color:Color(0xFFD9B76E),fontWeight:FontWeight.w900,letterSpacing:2)),const SizedBox(height:10),Wrap(alignment:WrapAlignment.center,spacing:8,runSpacing:8,children:[for(final t in (game.trick.isNotEmpty?game.trick:game.lastTrick))Column(children:[Container(width:58,height:82,alignment:Alignment.center,decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(9),boxShadow:const [BoxShadow(color:Colors.black38,blurRadius:6,offset:Offset(2,3))]),child:Text(t.card.toString(),style:TextStyle(fontSize:20,fontWeight:FontWeight.w900,color:t.card.suit.isRed?Colors.red:Colors.black))),Text(game.players[t.player].name,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w700,fontSize:11))])]),if(game.trick.isEmpty&&game.lastTrick.isNotEmpty)Padding(padding:const EdgeInsets.only(top:10),child:Text('ट्रिक जीता: ${game.players[game.lastTrickWinner!].name}',style:const TextStyle(color:Color(0xFFFFD56A),fontWeight:FontWeight.w900))) ])),
+        const Divider(color:Color(0x55FFFFFF)),
         Text(game.bidding ? (game.players[game.turn].isBot?'Bot बोली लगा रहा है…':'आपकी बोली चुनें') : game.complete ? 'राउंड पूरा' : '${game.players[game.turn].name} की चाल',style:const TextStyle(fontWeight:FontWeight.w900,fontSize:17)),
         if(me>=0) ...[
           const Text('आपके पत्ते',style:TextStyle(fontWeight:FontWeight.w900)),
@@ -239,8 +244,8 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
         if(_notice!=null)Text(_notice!,style:const TextStyle(color:Colors.red)),
         const SizedBox(height:12),
         VoiceChatPanel(roomCode:widget.roomCode,getFirebaseIdToken:widget.service.getCurrentIdToken),
-        const Center(child:Text('Developed by Shartendu',style:TextStyle(color:Colors.blueGrey,fontSize:11))),
-      ])));
+        const Center(child:Text('Developed by Shartendu',style:TextStyle(color:Colors.white70,fontSize:11))),
+      ]))),Positioned.fill(child:IgnorePointer(child:ConfettiWidget(confettiController:_confetti,blastDirectionality:BlastDirectionality.explosive,shouldLoop:false,numberOfParticles:35,gravity:0.18,colors:const [Color(0xFFFFD56A),Colors.white,Color(0xFF16A6A1)]))) ]));
   }
 }
 

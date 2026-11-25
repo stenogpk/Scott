@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:url_launcher/url_launcher.dart';
 // ignore_for_file: deprecated_member_use, prefer_is_empty
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -117,13 +118,33 @@ class _CallBreakOnlinePageState extends State<CallBreakOnlinePage> {
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invite कॉपी हो गया।')));
   }
 
+  Future<void> _goHome() async {
+    final homeUri = Uri.base.replace(queryParameters: const {});
+    await launchUrl(homeUri, mode: LaunchMode.platformDefault, webOnlyWindowName: '_self');
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('लकड़ी • CALL BREAK')),
+    appBar: AppBar(
+      toolbarHeight: 68,
+      leadingWidth: 76,
+      leading: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        IconButton(tooltip: 'SCOTT Home', onPressed: _goHome, icon: const Icon(Icons.home_rounded), padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+        const Text('MORE GAMES', style: TextStyle(fontSize: 8, fontWeight: FontWeight.w900, letterSpacing: .3)),
+      ]),
+      title: const FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft,
+        child: Text('लकड़ी • CALL BREAK', maxLines: 1, style: TextStyle(fontWeight: FontWeight.w800))),
+    ),
     body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 560), child: ListView(padding: const EdgeInsets.all(18), children: [
       Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF142B45), Color(0xFF247A83)]), borderRadius: BorderRadius.circular(20)), child: const Column(children: [
-        Icon(Icons.style, color: Color(0xFFD9B76E), size: 42),
-        SizedBox(height: 8), Text('CALL BREAK', style: TextStyle(color: Color(0xFFD9B76E), fontSize: 25, fontWeight: FontWeight.w900, letterSpacing: 2)),
+        SizedBox(height: 4),
+        SizedBox(width: 176, height: 176, child: ClipRRect(
+          borderRadius: BorderRadius.all(Radius.circular(18)),
+          child: Image.asset('assets/call_break_logo.png', fit: BoxFit.contain, filterQuality: FilterQuality.high),
+        )),
+        SizedBox(height: 8),
+        Text('लकड़ी • CALL BREAK', textAlign: TextAlign.center,
+          style: TextStyle(color: Color(0xFFD9B76E), fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: .6)),
         Text('चार खिलाड़ी • 13 ट्रिक • स्पेड ट्रम्प', style: TextStyle(color: Colors.white)),
       ])),
       const SizedBox(height: 16),
@@ -264,7 +285,7 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
   @override Widget build(BuildContext context) {
     final mine = game.players[game.turn].id == widget.service.userId;
     final me = game.players.indexWhere((p)=>p.id==widget.service.userId);
-    return Scaffold(appBar:AppBar(title:Text('CALL BREAK • ${widget.roomCode}'),actions:[IconButton(tooltip:'About SCOTT',onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AboutPage())),icon:const Icon(Icons.info_outline)),IconButton(tooltip:'नियम',onPressed:()=>showModalBottomSheet(context:context,builder:(_)=>const _CallBreakRules()),icon:const Icon(Icons.menu_book))]),
+    return Scaffold(appBar:AppBar(title:const Column(crossAxisAlignment:CrossAxisAlignment.start,mainAxisSize:MainAxisSize.min,children:[Text('लकड़ी • CALL BREAK',maxLines:1,style:TextStyle(fontSize:16,fontWeight:FontWeight.w800)),Text('Room code',style:TextStyle(fontSize:10))]),actions:[IconButton(tooltip:'About SCOTT',onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AboutPage())),icon:const Icon(Icons.info_outline)),IconButton(tooltip:'नियम',onPressed:()=>showModalBottomSheet(context:context,builder:(_)=>const _CallBreakRules()),icon:const Icon(Icons.menu_book))]),
       body:Stack(children:[SafeArea(child:Container(decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Color(0xFF102D27),Color(0xFF071D19)])),child:ListView(padding:const EdgeInsets.all(12),children:[
         _tableHeader(game),
         const SizedBox(height:10),
@@ -287,7 +308,7 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
           Wrap(spacing:6,runSpacing:6,children:[for(final c in game.players[me].hand)ActionChip(label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black)),onPressed:!game.bidding && !game.complete && game.turn==me && game.legalCards(me).contains(c)?()=>_play(c):null)]),
         ],
         if(game.bidding && mine) Wrap(spacing:6,children:[for(var n=1;n<=13;n++)ActionChip(label:Text('$n'),onPressed:()=>_bid(n))]),
-        if(!game.bidding) Text('टेबल: ${game.trick.map((t)=>'${game.players[t.player].name}: ${t.card}').join('  •  ')}'),
+        
         if(game.complete) Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(children:[
           Text(game.matchComplete?'मैच विजेता: ${game.winnerName}':'राउंड स्कोर',style:const TextStyle(fontSize:20,fontWeight:FontWeight.w900)),
           for(final p in game.players)ListTile(title:Text(p.name),subtitle:Text('बोली ${p.bid} • ट्रिक ${p.tricks}'),trailing:Text(p.score.toStringAsFixed(1))),
@@ -317,8 +338,19 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
   int get me=>players.indexWhere((p)=>(p as Map)['id']==widget.playerId);
   int get turn=>(state['turn'] as num).toInt();
   bool get bidding=>state['bidding']==true;
+  List<PlayingCard> get legalHandCards {
+    final suitName = state['leadSuit'] as String?;
+    final currentTrick = ((state['trick'] as List?) ?? const []).map((raw) {
+      final item = Map<String, dynamic>.from(raw as Map);
+      return (player: (item['player'] as num).toInt(),
+        card: CallBreakEngine.cardFromJson(Map<String, dynamic>.from(item['card'] as Map)));
+    }).toList();
+    return CallBreakEngine.legalCardsForHand(hand,
+      leadSuit: suitName == null ? null : CardSuit.values.byName(suitName),
+      trick: currentTrick);
+  }
   Future<void> _send(Map<String,dynamic> a)async{try{await widget.sendAction(a);}catch(e){if(mounted)setState(()=>notice=e.toString());}}
-  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:Text('CALL BREAK • ${widget.roomCode}'),actions:[IconButton(tooltip:'About SCOTT',onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AboutPage())),icon:const Icon(Icons.info_outline)),IconButton(tooltip:'नियम',onPressed:()=>showModalBottomSheet(context:context,builder:(_)=>const _CallBreakRules()),icon:const Icon(Icons.menu_book))]),body:SafeArea(child:ListView(padding:const EdgeInsets.all(12),children:[
+  @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Column(crossAxisAlignment:CrossAxisAlignment.start,mainAxisSize:MainAxisSize.min,children:[Text('लकड़ी • CALL BREAK',maxLines:1,style:TextStyle(fontSize:16,fontWeight:FontWeight.w800)),Text('Room code',style:TextStyle(fontSize:10))]),actions:[IconButton(tooltip:'About SCOTT',onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AboutPage())),icon:const Icon(Icons.info_outline)),IconButton(tooltip:'नियम',onPressed:()=>showModalBottomSheet(context:context,builder:(_)=>const _CallBreakRules()),icon:const Icon(Icons.menu_book))]),body:SafeArea(child:ListView(padding:const EdgeInsets.all(12),children:[
     _guestHeader(state),
     _callBreakTable(
       players: [for (final p in players) Map<String,dynamic>.from(p as Map)],
@@ -335,9 +367,9 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
       isMine: !bidding && turn == me,
     ),
     const Text('आपके पत्ते',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:16)),
-    Wrap(spacing:6,runSpacing:6,children:[for(final c in hand.where((c)=>bidding || state['leadSuit']==null || hand.where((x)=>x.suit.name==state['leadSuit']).isEmpty || c.suit.name==state['leadSuit']))ActionChip(label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black)),onPressed:!bidding && turn==me ? ()=>_send({'type':'play','card':CallBreakEngine.cardToJson(c)}) : null)]),
+    Wrap(spacing:6,runSpacing:6,children:[for(final c in hand.where((c)=>bidding || legalHandCards.contains(c)))ActionChip(label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black)),onPressed:!bidding && turn==me ? ()=>_send({'type':'play','card':CallBreakEngine.cardToJson(c)}) : null)]),
     if(bidding&&turn==me)Wrap(spacing:6,children:[for(var n=1;n<=13;n++)ActionChip(label:Text('$n'),onPressed:()=>_send({'type':'bid','bid':n}))]),
-    if(!bidding) Text('टेबल: ${((state['trick'] as List?)??const []).map((t)=>'${(players[(t as Map)['player'] as int] as Map)['name']}: ${CallBreakEngine.cardFromJson(Map<String,dynamic>.from(t['card'] as Map))}').join(' • ')}'),
+
     if(state['complete']==true)Card(child:Column(children:[const Text('राउंड पूरा'),for(final p in players)ListTile(title:Text(p['name'].toString()),trailing:Text('${p['score']}'))])),
     if(notice!=null)Text(notice!,style:const TextStyle(color:Colors.red)),
     VoiceChatPanel(roomCode:widget.roomCode,getFirebaseIdToken:widget.getToken),
@@ -517,6 +549,6 @@ Widget _guestPlayer(Map p,bool active,bool me)=>Card(color:active?const Color(0x
 class _CallBreakRules extends StatelessWidget { const _CallBreakRules(); @override Widget build(BuildContext context)=>const SafeArea(child:Padding(padding:EdgeInsets.all(20),child:SingleChildScrollView(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
   Text('लकड़ी • CALL BREAK के नियम',style:TextStyle(fontSize:22,fontWeight:FontWeight.w900)),
   Text('चार खिलाड़ी • 52 पत्ते • प्रत्येक को 13 पत्ते। स्पेड (♠) ट्रम्प है। हर खिलाड़ी 1 से 13 तक बोली लगाएगा और सभी बोलियों का योग कम-से-कम 9 होना चाहिए।'),
-  SizedBox(height:10),Text('हर चाल में पहले चलाए गए रंग का पत्ता देना अनिवार्य है। रंग न होने पर कोई भी पत्ता या ट्रम्प चल सकते हैं। ट्रम्प में सबसे बड़ा स्पेड, अन्यथा लीड रंग का सबसे बड़ा पत्ता ट्रिक जीतता है।'),
+  SizedBox(height:10),Text('जिस रंग से चाल शुरू हुई है, वह रंग आपके पास हो तो वही चलाना अनिवार्य है। उस रंग में यदि टेबल पर पड़े सबसे बड़े पत्ते से बड़ा पत्ता आपके पास है, तो उससे बड़ा पत्ता चलाना जरूरी है; इनमें से कोई भी बड़ा पत्ता चुन सकते हैं, सबसे बड़ा ही चलाना जरूरी नहीं। बड़ा पत्ता न हो तो उसी रंग का कोई भी पत्ता चल सकता है। रंग न होने पर स्पेड से काटना वैकल्पिक है—आप कोई दूसरा पत्ता भी चला सकते हैं। स्पेड ट्रम्प है।'),
   SizedBox(height:10),Text('बोली पूरी न होने पर बोली के अंक कटेंगे। बोली पूरी होने पर बोली के अंक मिलेंगे और हर अतिरिक्त ट्रिक पर 0.1 अंक जुड़ेंगे। मैच 5 से 13 राउंड का होगा।'),
 ]))));}

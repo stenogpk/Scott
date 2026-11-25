@@ -1,3 +1,4 @@
+// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import '../game/playing_card.dart';
 import '../game/call_break_engine.dart';

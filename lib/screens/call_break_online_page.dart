@@ -268,8 +268,12 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
       body:Stack(children:[SafeArea(child:Container(decoration:const BoxDecoration(gradient:LinearGradient(begin:Alignment.topCenter,end:Alignment.bottomCenter,colors:[Color(0xFF102D27),Color(0xFF071D19)])),child:ListView(padding:const EdgeInsets.all(12),children:[
         _tableHeader(game),
         const SizedBox(height:10),
-        for(var i=0;i<4;i++) _playerLine(game.players[i],i==game.turn,i==me),
-        Container(margin:const EdgeInsets.symmetric(vertical:12),padding:const EdgeInsets.all(18),decoration:BoxDecoration(color:const Color(0xFF174B3B),borderRadius:BorderRadius.circular(28),border:Border.all(color:const Color(0xFFD9B76E),width:2),boxShadow:const [BoxShadow(color:Colors.black45,blurRadius:16,offset:Offset(0,6))]),child:Column(children:[const Text('TABLE • TRICK ARENA',style:TextStyle(color:Color(0xFFD9B76E),fontWeight:FontWeight.w900,letterSpacing:2)),const SizedBox(height:10),Wrap(alignment:WrapAlignment.center,spacing:8,runSpacing:8,children:[for(final t in (game.trick.isNotEmpty?game.trick:game.lastTrick))Column(children:[Container(width:58,height:82,alignment:Alignment.center,decoration:BoxDecoration(color:Colors.white,borderRadius:BorderRadius.circular(9),boxShadow:const [BoxShadow(color:Colors.black38,blurRadius:6,offset:Offset(2,3))]),child:Text(t.card.toString(),style:TextStyle(fontSize:20,fontWeight:FontWeight.w900,color:t.card.suit.isRed?Colors.red:Colors.black))),Text(game.players[t.player].name,style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w700,fontSize:11))])]),if(game.trick.isEmpty&&game.lastTrick.isNotEmpty)Padding(padding:const EdgeInsets.only(top:10),child:Text('ट्रिक जीता: ${game.players[game.lastTrickWinner!].name}',style:const TextStyle(color:Color(0xFFFFD56A),fontWeight:FontWeight.w900))) ])),
+        _callBreakTable(
+          players: [for (final p in game.players) {'name':p.name,'isBot':p.isBot,'bid':p.bid,'tricks':p.tricks,'score':p.score}],
+          trick: [for (final t in (game.trick.isNotEmpty?game.trick:game.lastTrick)) {'player':t.player,'card':t.card.toString()}],
+          turn: game.turn, me: me,
+          winner: game.trick.isEmpty ? game.lastTrickWinner : null,
+        ),
         const Divider(color:Color(0x55FFFFFF)),
         Text(game.bidding ? (game.players[game.turn].isBot?'Bot बोली लगा रहा है…':'आपकी बोली चुनें') : game.complete ? 'राउंड पूरा' : '${game.players[game.turn].name} की चाल',style:const TextStyle(fontWeight:FontWeight.w900,fontSize:17)),
         if(me>=0) ...[
@@ -310,8 +314,15 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
   Future<void> _send(Map<String,dynamic> a)async{try{await widget.sendAction(a);}catch(e){if(mounted)setState(()=>notice=e.toString());}}
   @override Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:Text('CALL BREAK • ${widget.roomCode}'),actions:[IconButton(tooltip:'About SCOTT',onPressed:()=>Navigator.push(context,MaterialPageRoute(builder:(_)=>const AboutPage())),icon:const Icon(Icons.info_outline)),IconButton(tooltip:'नियम',onPressed:()=>showModalBottomSheet(context:context,builder:(_)=>const _CallBreakRules()),icon:const Icon(Icons.menu_book))]),body:SafeArea(child:ListView(padding:const EdgeInsets.all(12),children:[
     _guestHeader(state),
-    for(var i=0;i<players.length;i++)_guestPlayer(players[i] as Map,i==turn,i==me),
-    const Divider(),
+    _callBreakTable(
+      players: [for (final p in players) Map<String,dynamic>.from(p as Map)],
+      trick: [for (final t in ((state['trick'] as List?)?.isNotEmpty == true ? state['trick'] as List : (state['lastTrick'] as List? ?? const []))) {
+        'player':(t as Map)['player'],
+        'card':CallBreakEngine.cardFromJson(Map<String,dynamic>.from(t['card'] as Map)).toString(),
+      }],
+      turn: turn, me: me,
+      winner: (state['trick'] as List? ?? const []).isEmpty ? state['lastTrickWinner'] as int? : null,
+    ),
     Text(bidding?'बोली का समय':'${(players[turn] as Map)['name']} की चाल',style:const TextStyle(fontWeight:FontWeight.w900,fontSize:17)),
     const Text('आपके पत्ते',style:TextStyle(fontWeight:FontWeight.w900)),
     Wrap(spacing:6,runSpacing:6,children:[for(final c in hand.where((c)=>bidding || state['leadSuit']==null || hand.where((x)=>x.suit.name==state['leadSuit']).isEmpty || c.suit.name==state['leadSuit']))ActionChip(label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black)),onPressed:!bidding && turn==me ? ()=>_send({'type':'play','card':CallBreakEngine.cardToJson(c)}) : null)]),
@@ -322,6 +333,122 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
     VoiceChatPanel(roomCode:widget.roomCode,getFirebaseIdToken:widget.getToken),
     const Center(child:Text('Developed by Shartendu')),
   ])));
+}
+
+
+Widget _callBreakTable({
+  required List<Map<String,dynamic>> players,
+  required List<Map<String,dynamic>> trick,
+  required int turn,
+  required int me,
+  int? winner,
+}) {
+  final self = me >= 0 && me < players.length ? me : 0;
+  final top = (self + 2) % 4;
+  final left = (self + 3) % 4;
+  final right = (self + 1) % 4;
+  Widget seat(int index) {
+    final p = players[index];
+    final active = index == turn;
+    final isMe = index == self;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 260),
+      width: 116,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      decoration: BoxDecoration(
+        color: active ? const Color(0xFF285E48) : const Color(0xCC09251F),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: active ? const Color(0xFFFFD56A) : const Color(0x557CC6A3), width: active ? 2 : 1),
+        boxShadow: [if(active) const BoxShadow(color: Color(0x88FFD56A), blurRadius: 13, spreadRadius: 1)],
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(isMe ? Icons.person_pin_circle : Icons.person, size: 15, color: active ? const Color(0xFFFFD56A) : Colors.white70),
+          const SizedBox(width: 4),
+          Flexible(child: Text('${p['name'] ?? 'Player'}', maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900))),
+        ]),
+        const SizedBox(height: 3),
+        Text('बोली ${p['bid'] == null || p['bid'] == 0 ? '—' : p['bid']}  •  ट्रिक ${p['tricks'] ?? 0}',
+          style: const TextStyle(color: Color(0xFFD5E7DE), fontSize: 9, fontWeight: FontWeight.w600)),
+        Text((p['isBot'] == true ? 'BOT  •  ' : '') + 'स्कोर ${(p['score'] as num? ?? 0).toStringAsFixed(1)}',
+          style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 9, fontWeight: FontWeight.w800)),
+      ]),
+    );
+  }
+  Widget playingCard(Map<String,dynamic> play) {
+    final card = play['card']?.toString() ?? '';
+    final red = card.contains('♥') || card.contains('♦');
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 320),
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(scale: Tween<double>(begin: .72, end: 1).animate(animation), child: child),
+      ),
+      child: Container(
+        key: ValueKey('${play['player']}-${card}'),
+        width: 48, height: 68,
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Color(0xFFE8E4D9)]),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFD5CBB5)),
+          boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 9, offset: Offset(2, 4))],
+        ),
+        child: Center(child: Text(card, textAlign: TextAlign.center,
+          style: TextStyle(color: red ? const Color(0xFFB51F32) : const Color(0xFF18251F), fontSize: 19, fontWeight: FontWeight.w900))),
+      ),
+    );
+  }
+  return Container(
+    height: 366,
+    margin: const EdgeInsets.symmetric(vertical: 8),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(30),
+      gradient: const RadialGradient(center: Alignment(0, -.12), radius: 1.25,
+        colors: [Color(0xFF286B4D), Color(0xFF124331), Color(0xFF08271F)]),
+      border: Border.all(color: const Color(0xFFD2B36B), width: 3),
+      boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 18, offset: Offset(0, 8))],
+    ),
+    child: LayoutBuilder(builder: (context, bounds) {
+      final w = bounds.maxWidth;
+      final cardPositions = <int, Offset>{
+        0: Offset(w / 2 - 24, 94),
+        1: Offset(w - 76, 150),
+        2: Offset(w / 2 - 24, 224),
+        3: const Offset(8, 150),
+      };
+      return Stack(clipBehavior: Clip.hardEdge, children: [
+        const Positioned(top: 83, left: 0, right: 0, child: Center(child: Text('SCOTT  •  CALL BREAK', style: TextStyle(color: Color(0x77FFFFFF), letterSpacing: 3, fontSize: 10, fontWeight: FontWeight.w900)))),
+        Positioned(top: 8, left: w/2-58, child: seat(top)),
+        Positioned(left: 5, top: 144, child: seat(left)),
+        Positioned(right: 5, top: 144, child: seat(right)),
+        Positioned(bottom: 7, left: w/2-58, child: seat(self)),
+        for (final play in trick)
+          Builder(builder: (_) {
+            final player = (play['player'] as num).toInt();
+            final relative = (player - self + 4) % 4;
+            final pos = cardPositions[relative]!;
+            return AnimatedPositioned(
+              key: ValueKey('play-$player-${play['card']}'),
+              duration: const Duration(milliseconds: 380),
+              curve: Curves.easeOutBack,
+              left: pos.dx, top: pos.dy,
+              child: playingCard(play),
+            );
+          }),
+        if (winner != null && trick.length == 4)
+          Positioned(top: 184, left: 0, right: 0, child: Center(
+            child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(color: const Color(0xDD08271F), borderRadius: BorderRadius.circular(20), border: Border.all(color: const Color(0xFFFFD56A))),
+              child: Text('${players[winner]['name']} ने ट्रिक जीती', style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 11, fontWeight: FontWeight.w900)),
+            ),
+          )),
+        if (trick.isEmpty)
+          const Positioned(left: 0,right: 0,top: 174,child: Center(child: Text('कार्ड की चाल यहाँ आएगी',style: TextStyle(color: Color(0x88FFFFFF),fontSize: 10)))),
+      ]);
+    }),
+  );
 }
 
 Widget _tableHeader(CallBreakEngine g)=>Container(padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:const Color(0xFF142B45),borderRadius:BorderRadius.circular(16)),child:Column(children:[

@@ -13,6 +13,7 @@ import 'screens/about_page.dart';
 import 'services/scott_audio.dart';
 import 'widgets/scott_royal_logo.dart';
 import 'widgets/new_games_card.dart';
+import 'screens/call_break_online_page.dart';
 
 const apiKey = String.fromEnvironment('FIREBASE_API_KEY');
 const databaseUrl = String.fromEnvironment('FIREBASE_DATABASE_URL');
@@ -30,7 +31,7 @@ class ScottWebApp extends StatelessWidget {
       child ?? const SizedBox.shrink(),
       const Positioned(right: 10, bottom: 6, child: IgnorePointer(child: Text('Developed by Shartendu', style: TextStyle(fontSize: 9, color: Color(0x8871808C), fontWeight: FontWeight.w700)))),
     ]),
-    home: const ScottWebHome(),
+    home: Uri.base.queryParameters['callbreak'] == '1' ? const CallBreakOnlinePage() : const ScottWebHome(),
   );
 }
 

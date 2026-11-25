@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scott_game/game/call_break_engine.dart';
-import 'package:scott_game/game/playing_card.dart';
 
 void main() {
   CallBreakEngine makeGame() => CallBreakEngine(seats: [

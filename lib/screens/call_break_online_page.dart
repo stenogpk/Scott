@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
+// ignore_for_file: deprecated_member_use, prefer_is_empty
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import '../network/firebase_room_service.dart';
 import '../network/room_models.dart';
@@ -83,7 +84,7 @@ class _CallBreakOnlinePageState extends State<CallBreakOnlinePage> {
   Future<void> _start() async {
     final room = _room;
     if (room == null || room.hostId != _service.userId) return;
-    if (room.players.length < 1 || (!_fillBots && room.players.length != 4)) {
+    if (room.players.isEmpty || (!_fillBots && room.players.length != 4)) {
       setState(() => _error = 'बिना Bots के शुरू करने के लिए चारों खिलाड़ियों का जुड़ना जरूरी है।'); return;
     }
     setState(() { _busy = true; _error = null; });
@@ -125,7 +126,7 @@ class _CallBreakOnlinePageState extends State<CallBreakOnlinePage> {
       TextField(controller: _name, maxLength: 18, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'आपका नाम', prefixIcon: Icon(Icons.person))),
       if (_room == null) ...[
         const SizedBox(height: 6),
-        DropdownButtonFormField<int>(value: _rounds, decoration: const InputDecoration(labelText: 'मैच में राउंड'), items: [for (var n=5;n<=13;n++) DropdownMenuItem(value:n, child:Text('$n राउंड'))], onChanged: (v) { if(v!=null)setState(()=>_rounds=v); }),
+        DropdownButtonFormField<int>(initialValue: _rounds, decoration: const InputDecoration(labelText: 'मैच में राउंड'), items: [for (var n=5;n<=13;n++) DropdownMenuItem(value:n, child:Text('$n राउंड'))], onChanged: (v) { if(v!=null)setState(()=>_rounds=v); }),
         SwitchListTile(contentPadding: EdgeInsets.zero, value: _fillBots, onChanged: (v)=>setState(()=>_fillBots=v), title: const Text('खाली सीटों पर Bots भरें'), subtitle: const Text('1, 2, 3 या 4 असली खिलाड़ियों के साथ शुरू करें')),
         FilledButton.icon(onPressed: _busy ? null : _create, icon: const Icon(Icons.add_circle_outline), label: const Text('Create Room')),
         const Divider(height: 30),
@@ -163,7 +164,7 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
   String? _notice;
   bool _busy = false;
   CallBreakEngine get game => widget.engine;
-  @override void initState() { super.initState(); _actions = widget.service.watchActions(widget.roomCode).listen(_remoteAction, onError: (e)=>_say(e.toString())); _driveBots(); }
+  @override void initState() { super.initState(); _actions = widget.service.watchActions(widget.roomCode).listen((items) { for (final item in items) { _remoteAction(item); } }, onError: (e)=>_say(e.toString())); _driveBots(); }
   @override void dispose() { unawaited(_actions?.cancel()); super.dispose(); }
 
   Future<void> _sync() => widget.service.publishGameState(widget.roomCode, game.publicState(), game.privateHands());

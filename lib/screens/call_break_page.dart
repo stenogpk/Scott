@@ -13,7 +13,7 @@ class _CallBreakPageState extends State<CallBreakPage> {
   int selectedBid=2;
   String? notice;
   @override void initState(){super.initState();_newMatch();}
-  void _newMatch(){game=CallBreakEngine();game.deal();_runBots();}
+  void _newMatch(){game=CallBreakEngine(seats:[(id:'you',name:'आप',isBot:false),(id:'bot1',name:'खिलाड़ी 2',isBot:true),(id:'bot2',name:'खिलाड़ी 3',isBot:true),(id:'bot3',name:'खिलाड़ी 4',isBot:true)]);game.deal();_runBots();}
   void _runBots(){
     while(mounted && !game.complete && game.turn!=0){
       if(game.bidding){
@@ -68,7 +68,7 @@ class _CallBreakPageState extends State<CallBreakPage> {
       if(game.complete)Card(child:Padding(padding:const EdgeInsets.all(16),child:Column(children:[
         const Text('राउंड स्कोर',style:TextStyle(fontSize:20,fontWeight:FontWeight.bold)),
         for(final p in game.players)ListTile(title:Text(p.name),subtitle:Text('बोली ${p.bid} • जीतीं ${p.tricks} ट्रिक'),trailing:Text(p.score.toStringAsFixed(1))),
-        if(game.round>=rounds)Text('मैच विजेता: ${game.winnerName()}',style:const TextStyle(fontWeight:FontWeight.w900,fontSize:18)),
+        if(game.round>=rounds)Text('मैच विजेता: ${game.winnerName}',style:const TextStyle(fontWeight:FontWeight.w900,fontSize:18)),
         FilledButton(onPressed:game.round>=rounds?()=>setState(_newMatch):()=>setState(()=>game.nextRound()),child:Text(game.round>=rounds?'नया मैच':'अगला राउंड')),
       ]))),
       const SizedBox(height:18),const Center(child:Text('Developed by Shartendu',style:TextStyle(color:Colors.blueGrey,fontSize:11))),

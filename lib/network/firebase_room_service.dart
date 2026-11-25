@@ -50,11 +50,11 @@ class FirebaseRoomService {
     return RoomSnapshot(code: code, hostId: hostId, players: [player], targetScore: targetScore);
   }
 
-  Future<RoomSnapshot> joinRoom({required String code, required String playerName}) async {
+  Future<RoomSnapshot> joinRoom({required String code, required String playerName, int maxPlayers = 5}) async {
     await _ensureSignedIn();
     final room = await getRoom(code);
     if (room.started) throw StateError('यह गेम शुरू हो चुका है।');
-    if (room.players.length >= 5) throw StateError('कमरा भर चुका है।');
+    if (room.players.length >= maxPlayers) throw StateError('कमरा भर चुका है।');
     if (room.players.any((p) => p.id == _userId)) return room;
     final player = RoomPlayer(id: _userId!, name: playerName.trim());
     // A joining guest may add only their own player record. updatedAt is

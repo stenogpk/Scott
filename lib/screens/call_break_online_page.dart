@@ -54,7 +54,7 @@ class _CallBreakOnlinePageState extends State<CallBreakOnlinePage> {
     await _run(() async {
       final room = await _service.getRoom(_code.text.trim().toUpperCase());
       if (room.players.length >= 4) throw StateError('इस Room में चारों सीटें भर चुकी हैं।');
-      return _service.joinRoom(code: _code.text.trim().toUpperCase(), playerName: _name.text.trim());
+      return _service.joinRoom(code: _code.text.trim().toUpperCase(), playerName: _name.text.trim(), maxPlayers: 4);
     });
   }
 
@@ -236,7 +236,7 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
         ]))),
         if(_notice!=null)Text(_notice!,style:const TextStyle(color:Colors.red)),
         const SizedBox(height:12),
-        VoiceChatPanel(roomCode:'callbreak-${widget.roomCode}',getFirebaseIdToken:widget.service.getCurrentIdToken),
+        VoiceChatPanel(roomCode:widget.roomCode,getFirebaseIdToken:widget.service.getCurrentIdToken),
         const Center(child:Text('Developed by Shartendu',style:TextStyle(color:Colors.blueGrey,fontSize:11))),
       ])));
   }
@@ -271,7 +271,7 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
     ],
     if(state['complete']==true)Card(child:Column(children:[const Text('राउंड पूरा'),for(final p in players)ListTile(title:Text(p['name'].toString()),trailing:Text('${p['score']}'))])),
     if(notice!=null)Text(notice!,style:const TextStyle(color:Colors.red)),
-    VoiceChatPanel(roomCode:'callbreak-${widget.roomCode}',getFirebaseIdToken:widget.getToken),
+    VoiceChatPanel(roomCode:widget.roomCode,getFirebaseIdToken:widget.getToken),
     const Center(child:Text('Developed by Shartendu')),
   ])));
 }

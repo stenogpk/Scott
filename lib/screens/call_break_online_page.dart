@@ -291,6 +291,7 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
           trick: [for (final t in (game.trick.isNotEmpty?game.trick:game.lastTrick)) {'player':t.player,'card':t.card.toString()}],
           turn: game.turn, me: me,
           winner: game.trick.isEmpty ? game.lastTrickWinner : null,
+          previousTrick: [for (final t in game.lastTrick) {'player':t.player,'card':t.card.toString()}],
         ),
         const Divider(color:Color(0x55FFFFFF)),
         _turnBanner(
@@ -357,6 +358,10 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
       }],
       turn: turn, me: me,
       winner: (state['trick'] as List? ?? const []).isEmpty ? state['lastTrickWinner'] as int? : null,
+      previousTrick: [for (final t in (state['lastTrick'] as List? ?? const [])) {
+        'player':(t as Map)['player'],
+        'card':CallBreakEngine.cardFromJson(Map<String,dynamic>.from(t['card'] as Map)).toString(),
+      }],
     ),
     _turnBanner(
       title: bidding ? '${(players[turn] as Map)['name']} की बोली' : '${(players[turn] as Map)['name']} की चाल',
@@ -375,144 +380,85 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
 }
 
 
-Widget _callBreakTable({
-  required List<Map<String,dynamic>> players,
-  required List<Map<String,dynamic>> trick,
-  required int turn,
-  required int me,
-  int? winner,
-}) {
-  final self = me >= 0 && me < players.length ? me : 0;
-  final top = (self + 2) % 4;
-  final left = (self + 3) % 4;
-  final right = (self + 1) % 4;
-  Widget seat(int index) {
-    final p = players[index];
-    final active = index == turn;
-    final isMe = index == self;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 260),
-      width: 116,
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-      decoration: BoxDecoration(
-        color: active ? const Color(0xFF285E48) : const Color(0xCC09251F),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: active ? const Color(0xFFFFD56A) : const Color(0x557CC6A3), width: active ? 2 : 1),
-        boxShadow: [if(active) const BoxShadow(color: Color(0x88FFD56A), blurRadius: 13, spreadRadius: 1)],
-      ),
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(isMe ? Icons.person_pin_circle : Icons.person, size: 15, color: active ? const Color(0xFFFFD56A) : Colors.white70),
-          const SizedBox(width: 4),
-          Flexible(child: Text('${p['name'] ?? 'Player'}', maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900))),
-        ]),
-        const SizedBox(height: 3),
-        Text('बोली ${p['bid'] == null || p['bid'] == 0 ? '—' : p['bid']}  •  ट्रिक ${p['tricks'] ?? 0}',
-          style: const TextStyle(color: Color(0xFFD5E7DE), fontSize: 9, fontWeight: FontWeight.w600)),
-        Text('${p['isBot'] == true ? 'BOT  •  ' : ''}स्कोर ${(p['score'] as num? ?? 0).toStringAsFixed(1)}',
-          style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 9, fontWeight: FontWeight.w800)),
-      ]),
-    );
-  }
-  Widget playingCard(Map<String,dynamic> play) {
-    final card = play['card']?.toString() ?? '';
-    final red = card.contains('♥') || card.contains('♦');
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 320),
-      transitionBuilder: (child, animation) => FadeTransition(
-        opacity: animation,
-        child: ScaleTransition(scale: Tween<double>(begin: .72, end: 1).animate(animation), child: child),
-      ),
-      child: Container(
-        key: ValueKey('${play['player']}-$card'),
-        width: 48, height: 68,
-        padding: const EdgeInsets.all(5),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Color(0xFFE8E4D9)]),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFD5CBB5)),
-          boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 9, offset: Offset(2, 4))],
-        ),
-        child: Center(child: Text(card, textAlign: TextAlign.center,
-          style: TextStyle(color: red ? const Color(0xFFB51F32) : const Color(0xFF18251F), fontSize: 19, fontWeight: FontWeight.w900))),
-      ),
-    );
-  }
-  return Container(
-    height: 366,
-    margin: const EdgeInsets.symmetric(vertical: 8),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(30),
-      gradient: const RadialGradient(center: Alignment(0, -.12), radius: 1.25,
-        colors: [Color(0xFF286B4D), Color(0xFF124331), Color(0xFF08271F)]),
-      border: Border.all(color: const Color(0xFFD2B36B), width: 3),
-      boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 18, offset: Offset(0, 8))],
-    ),
-    child: LayoutBuilder(builder: (context, bounds) {
-      final w = bounds.maxWidth;
-      final cardPositions = <int, Offset>{
-        0: Offset(w / 2 - 24, 224),
-        1: Offset(w - 76, 150),
-        2: Offset(w / 2 - 24, 94),
-        3: const Offset(8, 150),
-      };
-      final winnerRelative = winner == null ? -1 : (winner - self + 4) % 4;
-      final collectTarget = winnerRelative == 0
-          ? Offset(w / 2 - 24, 300)
-          : winnerRelative == 1
-              ? Offset(w - 74, 142)
-              : winnerRelative == 2
-                  ? Offset(w / 2 - 24, 8)
-                  : const Offset(4, 142);
-      return Stack(clipBehavior: Clip.hardEdge, children: [
-        const Positioned(top: 83, left: 0, right: 0, child: Center(child: Text('SCOTT  •  CALL BREAK', style: TextStyle(color: Color(0x77FFFFFF), letterSpacing: 3, fontSize: 10, fontWeight: FontWeight.w900)))),
-        Positioned(top: 8, left: w/2-58, child: seat(top)),
-        Positioned(left: 5, top: 144, child: seat(left)),
-        Positioned(right: 5, top: 144, child: seat(right)),
-        Positioned(bottom: 7, left: w/2-58, child: seat(self)),
-        for (final play in trick)
-          Builder(builder: (_) {
-            final player = (play['player'] as num).toInt();
-            final relative = (player - self + 4) % 4;
-            final pos = winner != null ? collectTarget : cardPositions[relative]!;
-            return AnimatedPositioned(
-              key: ValueKey('play-$player-${play['card']}'),
-              duration: Duration(milliseconds: winner != null ? 1050 : 420),
-              curve: winner != null ? Curves.easeInOutCubic : Curves.easeOutBack,
-              left: pos.dx, top: pos.dy,
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 1050),
-                opacity: winner != null ? 0 : 1,
-                child: Transform.scale(
-                  scale: winner != null ? 0.62 : 1,
-                  child: playingCard(play),
-                ),
-              ),
-            );
-          }),
-        if (winner != null && trick.length == 4)
-          Positioned(top: 184, left: 0, right: 0, child: Center(
-            child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFFFFE08A), Color(0xFFD4A83F)]),
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: Colors.white, width: 1.5),
-                boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 12, offset: Offset(0,4))],
-              ),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.emoji_events, color: Color(0xFF38280A), size: 18),
-                const SizedBox(width: 6),
-                Text('${players[winner]['name']}  •  इस ट्रिक का विजेता', style: const TextStyle(color: Color(0xFF38280A), fontSize: 12, fontWeight: FontWeight.w900)),
-              ]),
-            ),
-          )),
-        if (trick.isEmpty)
-          const Positioned(left: 0,right: 0,top: 174,child: Center(child: Text('कार्ड की चाल यहाँ आएगी',style: TextStyle(color: Color(0x88FFFFFF),fontSize: 10)))),
-      ]);
-    }),
-  );
+class _CallBreakTable extends StatefulWidget {
+  const _CallBreakTable({required this.players, required this.trick, required this.previousTrick, required this.turn, required this.me, this.winner});
+  final List<Map<String,dynamic>> players, trick, previousTrick;
+  final int turn, me; final int? winner;
+  @override State<_CallBreakTable> createState() => _CallBreakTableState();
 }
+class _CallBreakTableState extends State<_CallBreakTable> {
+  Timer? _timer; bool _collecting = false; String _key = '';
+  String get _signature => widget.trick.map((p) => '${p['player']}:${p['card']}').join('|') + ':${widget.winner}';
+  @override void initState() { super.initState(); _schedule(); }
+  @override void didUpdateWidget(covariant _CallBreakTable oldWidget) { super.didUpdateWidget(oldWidget); if (_signature != _key) _schedule(); }
+  void _schedule() {
+    _timer?.cancel(); _key = _signature; _collecting = false;
+    if (widget.winner != null && widget.trick.length == 4) {
+      _timer = Timer(const Duration(milliseconds: 950), () { if (mounted) setState(() => _collecting = true); });
+    }
+  }
+  @override void dispose() { _timer?.cancel(); super.dispose(); }
+  @override Widget build(BuildContext context) {
+    final players = widget.players, trick = widget.trick; final winner = widget.winner;
+    final self = widget.me >= 0 && widget.me < players.length ? widget.me : 0;
+    final top = (self + 2) % 4, left = (self + 3) % 4, right = (self + 1) % 4;
+    Widget seat(int index) {
+      final p = players[index], active = index == widget.turn, isMe = index == self;
+      return AnimatedContainer(duration: const Duration(milliseconds: 260), width: 116, padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+        decoration: BoxDecoration(color: active ? const Color(0xFF285E48) : const Color(0xCC09251F), borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: active ? const Color(0xFFFFD56A) : const Color(0x557CC6A3), width: active ? 2 : 1),
+          boxShadow: [if(active) const BoxShadow(color: Color(0x88FFD56A), blurRadius: 13, spreadRadius: 1)]),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(isMe ? Icons.person_pin_circle : Icons.person, size: 15, color: active ? const Color(0xFFFFD56A) : Colors.white70), const SizedBox(width: 4),
+            Flexible(child: Text('${p['name'] ?? 'Player'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900)))]),
+          const SizedBox(height: 3), Text('बोली ${p['bid'] == null || p['bid'] == 0 ? '—' : p['bid']}  •  ट्रिक ${p['tricks'] ?? 0}', style: const TextStyle(color: Color(0xFFD5E7DE), fontSize: 9, fontWeight: FontWeight.w600)),
+          Text('${p['isBot'] == true ? 'BOT  •  ' : ''}स्कोर ${(p['score'] as num? ?? 0).toStringAsFixed(1)}', style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 9, fontWeight: FontWeight.w800)),
+        ]));
+    }
+    Widget card(Map<String,dynamic> play) { final value = play['card']?.toString() ?? ''; final red = value.contains('♥') || value.contains('♦');
+      return Container(key: ValueKey('${play['player']}-$value'), width: 48, height: 68, padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Color(0xFFE8E4D9)]), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0xFFD5CBB5)), boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 9, offset: Offset(2, 4))]),
+        child: Center(child: Text(value, textAlign: TextAlign.center, style: TextStyle(color: red ? const Color(0xFFB51F32) : const Color(0xFF18251F), fontSize: 19, fontWeight: FontWeight.w900))));
+    }
+    final moving = _collecting && winner != null && trick.length == 4;
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      Container(height: 366, margin: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(borderRadius: BorderRadius.circular(30),
+        gradient: const RadialGradient(center: Alignment(0, -.12), radius: 1.25, colors: [Color(0xFF286B4D), Color(0xFF124331), Color(0xFF08271F)]), border: Border.all(color: const Color(0xFFD2B36B), width: 3), boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 18, offset: Offset(0, 8))]),
+        child: LayoutBuilder(builder: (context, bounds) {
+          final w = bounds.maxWidth; final positions = <int,Offset>{0:Offset(w/2-24,224),1:Offset(w-76,150),2:Offset(w/2-24,94),3:const Offset(8,150)};
+          final rel = winner == null ? -1 : (winner-self+4)%4;
+          final target = rel==0 ? Offset(w/2-24,300) : rel==1 ? Offset(w-74,142) : rel==2 ? Offset(w/2-24,8) : const Offset(4,142);
+          return Stack(clipBehavior: Clip.hardEdge, children: [
+            const Positioned(top:83,left:0,right:0,child:Center(child:Text('SCOTT  •  CALL BREAK',style:TextStyle(color:Color(0x77FFFFFF),letterSpacing:3,fontSize:10,fontWeight:FontWeight.w900)))),
+            Positioned(top:8,left:w/2-58,child:seat(top)), Positioned(left:5,top:144,child:seat(left)), Positioned(right:5,top:144,child:seat(right)), Positioned(bottom:7,left:w/2-58,child:seat(self)),
+            for (final play in trick) Builder(builder: (_) { final player=(play['player'] as num).toInt(); final relative=(player-self+4)%4; final pos=moving?target:positions[relative]!;
+              return AnimatedPositioned(key:ValueKey('play-$player-${play['card']}'),duration:Duration(milliseconds:moving?1050:420),curve:moving?Curves.easeInOutCubic:Curves.easeOutBack,left:pos.dx,top:pos.dy,
+                child:AnimatedOpacity(duration:const Duration(milliseconds:1050),opacity:moving?0:1,child:Transform.scale(scale:moving?.62:1,child:card(play)))); }),
+            if (winner != null && trick.length == 4) Positioned(top:184,left:0,right:0,child:Center(child:Container(padding:const EdgeInsets.symmetric(horizontal:16,vertical:9),
+              decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFFFFE08A),Color(0xFFD4A83F)]),borderRadius:BorderRadius.circular(22),border:Border.all(color:Colors.white,width:1.5),boxShadow:const [BoxShadow(color:Colors.black45,blurRadius:12,offset:Offset(0,4))]),
+              child:Row(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.emoji_events,color:Color(0xFF38280A),size:18),const SizedBox(width:6),Text('${players[winner]['name']}  •  इस ट्रिक का विजेता',style:const TextStyle(color:Color(0xFF38280A),fontSize:12,fontWeight:FontWeight.w900))])))),
+            if (trick.isEmpty) const Positioned(left:0,right:0,top:174,child:Center(child:Text('कार्ड की चाल यहाँ आएगी',style:TextStyle(color:Color(0x88FFFFFF),fontSize:10)))),
+          ]);
+        })),
+      _previousTrickPanel(players, widget.previousTrick),
+    ]);
+  }
+}
+Widget _previousTrickPanel(List<Map<String,dynamic>> players, List<Map<String,dynamic>> trick) => Container(width:double.infinity,margin:const EdgeInsets.only(top:3,bottom:8),padding:const EdgeInsets.all(12),
+  decoration:BoxDecoration(color:const Color(0xE6091714),borderRadius:BorderRadius.circular(16),border:Border.all(color:const Color(0x667CC6A3))),
+  child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
+    const Text('पिछली चाल के पत्ते',style:TextStyle(color:Colors.white,fontSize:14,fontWeight:FontWeight.w900)),const SizedBox(height:9),
+    if(trick.isEmpty) const Text('पहली चाल पूरी होने पर यहाँ पत्ते दिखेंगे',style:TextStyle(color:Color(0xFFCFDDD6),fontSize:11))
+    else Wrap(spacing:8,runSpacing:8,children:[for(final play in trick) Builder(builder:(_){
+      final index=(play['player'] as num).toInt(), value=play['card']?.toString()??'', red=value.contains('♥')||value.contains('♦');
+      final name=index>=0&&index<players.length?players[index]['name']?.toString()??'Player':'Player';
+      return Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:7),decoration:BoxDecoration(color:const Color(0xFF203B32),borderRadius:BorderRadius.circular(10),border:Border.all(color:const Color(0x557CC6A3))),
+        child:Row(mainAxisSize:MainAxisSize.min,children:[Text(name,style:const TextStyle(color:Colors.white,fontSize:11,fontWeight:FontWeight.w800)),const SizedBox(width:7),
+          Container(padding:const EdgeInsets.symmetric(horizontal:7,vertical:4),decoration:BoxDecoration(color:const Color(0xFFF4F0E6),borderRadius:BorderRadius.circular(6)),child:Text(value,style:TextStyle(color:red?const Color(0xFFB51F32):const Color(0xFF18251F),fontSize:13,fontWeight:FontWeight.w900))) ]));
+    })]),
+  ]));
+Widget _callBreakTable({required List<Map<String,dynamic>> players,required List<Map<String,dynamic>> trick,required List<Map<String,dynamic>> previousTrick,required int turn,required int me,int? winner}) =>
+  _CallBreakTable(players:players,trick:trick,previousTrick:previousTrick,turn:turn,me:me,winner:winner);
 
 Widget _turnBanner({required String title, required String subtitle, required bool isMine}) => Container(
   margin: const EdgeInsets.symmetric(vertical: 10),

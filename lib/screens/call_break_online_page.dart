@@ -148,7 +148,7 @@ class _CallBreakOnlinePageState extends State<CallBreakOnlinePage> {
       TextField(controller: _name, maxLength: 18, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'आपका नाम', prefixIcon: Icon(Icons.person))),
       if (_room == null) ...[
         const SizedBox(height: 6),
-        DropdownButtonFormField<int>(initialValue: _rounds, decoration: const InputDecoration(labelText: 'मैच में राउंड'), items: [for (var n=1;n<=3;n++) DropdownMenuItem(value:n, child:Text('$n राउंड'))], onChanged: (v) { if(v!=null)setState(()=>_rounds=v); }),
+        DropdownButtonFormField<int>(initialValue: _rounds, decoration: const InputDecoration(labelText: 'मैच में राउंड'), items: [for (var n=1;n<=5;n++) DropdownMenuItem(value:n, child:Text('$n राउंड'))], onChanged: (v) { if(v!=null)setState(()=>_rounds=v); }),
         SwitchListTile(contentPadding: EdgeInsets.zero, value: _fillBots, onChanged: (v)=>setState(()=>_fillBots=v), title: const Text('खाली सीटों पर Bots भरें'), subtitle: const Text('1, 2, 3 या 4 असली खिलाड़ियों के साथ शुरू करें')),
         FilledButton.icon(onPressed: _busy ? null : _create, icon: const Icon(Icons.add_circle_outline), label: const Text('Create Room')),
         const Divider(height: 30),
@@ -506,10 +506,10 @@ Widget _roundScoreSummary(Map<String, dynamic> roundData) {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
         decoration: BoxDecoration(color: const Color(0xFF0A211A), borderRadius: BorderRadius.circular(11)),
         child: const Row(children: [
-          Expanded(flex: 5, child: Text('PLAYER', style: TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.w900))),
-          Expanded(child: Text('CALL', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.w900))),
-          Expanded(child: Text('HANDS', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.w900))),
-          Expanded(flex: 2, child: Text('FINAL SCORE', textAlign: TextAlign.end, style: TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.w900))),
+          Expanded(flex: 5, child: Text('PLAYER', maxLines: 1, softWrap: false, style: TextStyle(color: Colors.white60, fontSize: 9, fontWeight: FontWeight.w900))),
+          Expanded(flex: 1, child: FittedBox(fit: BoxFit.scaleDown, child: Text('CALL', style: TextStyle(color: Colors.white60, fontSize: 9, fontWeight: FontWeight.w900)))),
+          Expanded(flex: 1, child: FittedBox(fit: BoxFit.scaleDown, child: Text('HANDS', style: TextStyle(color: Colors.white60, fontSize: 9, fontWeight: FontWeight.w900)))),
+          Expanded(flex: 2, child: FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerRight, child: Text('FINAL SCORE', style: TextStyle(color: Colors.white60, fontSize: 9, fontWeight: FontWeight.w900)))),
         ]),
       ),
       for (final p in players) Builder(builder: (_) {

@@ -394,7 +394,6 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
 
 
 Widget _scorecardButton(BuildContext context, {
-  required List<dynamic> players,
   required List<dynamic> history,
   required int currentRound,
   required bool roundComplete,

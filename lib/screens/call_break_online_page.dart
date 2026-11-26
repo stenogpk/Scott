@@ -293,8 +293,13 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
           winner: game.trick.isEmpty ? game.lastTrickWinner : null,
         ),
         if(me>=0) ...[
-          const Text('आपके पत्ते',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:16)),
-          Wrap(spacing:6,runSpacing:6,children:[for(final c in game.players[me].hand)ActionChip(label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black)),onPressed:!game.bidding && !game.complete && game.turn==me && game.legalCards(me).contains(c)?()=>_play(c):null)]),
+          const Text('आपके पत्ते',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:14)),
+          Wrap(spacing:5,runSpacing:5,children:[for(final c in game.players[me].hand)ActionChip(
+            visualDensity:VisualDensity.compact, materialTapTargetSize:MaterialTapTargetSize.shrinkWrap,
+            padding:const EdgeInsets.symmetric(horizontal:8,vertical:2), labelPadding:EdgeInsets.zero,
+            shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(8)),
+            label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black,fontSize:14,fontWeight:FontWeight.w600)),
+            onPressed:!game.bidding && !game.complete && game.turn==me && game.legalCards(me).contains(c)?()=>_play(c):null)]),
         ],
         if(game.bidding && mine) Wrap(spacing:6,children:[for(var n=1;n<=13;n++)ActionChip(label:Text('$n'),onPressed:()=>_bid(n))]),
         const Divider(color:Color(0x55FFFFFF)),
@@ -359,8 +364,13 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
       turn: turn, me: me,
       winner: (state['trick'] as List? ?? const []).isEmpty ? state['lastTrickWinner'] as int? : null,
     ),
-    const Text('आपके पत्ते',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:16)),
-    Wrap(spacing:6,runSpacing:6,children:[for(final c in hand.where((c)=>bidding || legalHandCards.contains(c)))ActionChip(label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black)),onPressed:!bidding && turn==me ? ()=>_send({'type':'play','card':CallBreakEngine.cardToJson(c)}) : null)]),
+    const Text('आपके पत्ते',style:TextStyle(color:Colors.white,fontWeight:FontWeight.w900,fontSize:14)),
+    Wrap(spacing:5,runSpacing:5,children:[for(final c in hand.where((c)=>bidding || legalHandCards.contains(c)))ActionChip(
+      visualDensity:VisualDensity.compact, materialTapTargetSize:MaterialTapTargetSize.shrinkWrap,
+      padding:const EdgeInsets.symmetric(horizontal:8,vertical:2), labelPadding:EdgeInsets.zero,
+      shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(8)),
+      label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black,fontSize:14,fontWeight:FontWeight.w600)),
+      onPressed:!bidding && turn==me ? ()=>_send({'type':'play','card':CallBreakEngine.cardToJson(c)}) : null)]),
     if(bidding&&turn==me)Wrap(spacing:6,children:[for(var n=1;n<=13;n++)ActionChip(label:Text('$n'),onPressed:()=>_send({'type':'bid','bid':n}))]),
     _turnBanner(
       title: bidding ? '${(players[turn] as Map)['name']} की बोली' : '${(players[turn] as Map)['name']} की चाल',
@@ -440,17 +450,17 @@ class _CallBreakTableState extends State<_CallBreakTable> {
     ]);
   }
 }
-Widget _previousTrickPanel(List<Map<String,dynamic>> players, List<Map<String,dynamic>> trick) => Container(width:double.infinity,margin:const EdgeInsets.only(top:3,bottom:8),padding:const EdgeInsets.all(12),
-  decoration:BoxDecoration(color:const Color(0xE6091714),borderRadius:BorderRadius.circular(16),border:Border.all(color:const Color(0x667CC6A3))),
+Widget _previousTrickPanel(List<Map<String,dynamic>> players, List<Map<String,dynamic>> trick) => Container(width:double.infinity,margin:const EdgeInsets.only(top:2,bottom:5),padding:const EdgeInsets.symmetric(horizontal:9,vertical:8),
+  decoration:BoxDecoration(color:const Color(0xE6091714),borderRadius:BorderRadius.circular(14),border:Border.all(color:const Color(0x667CC6A3))),
   child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
-    const Text('पिछली चाल के पत्ते',style:TextStyle(color:Colors.white,fontSize:14,fontWeight:FontWeight.w900)),const SizedBox(height:9),
-    if(trick.isEmpty) const Text('पहली चाल पूरी होने पर यहाँ पत्ते दिखेंगे',style:TextStyle(color:Color(0xFFCFDDD6),fontSize:11))
-    else Wrap(spacing:8,runSpacing:8,children:[for(final play in trick) Builder(builder:(_){
+    const Text('पिछली चाल के पत्ते',style:TextStyle(color:Colors.white,fontSize:12,fontWeight:FontWeight.w900)),const SizedBox(height:6),
+    if(trick.isEmpty) const Text('पहली चाल पूरी होने पर यहाँ पत्ते दिखेंगे',style:TextStyle(color:Color(0xFFCFDDD6),fontSize:10))
+    else Wrap(spacing:6,runSpacing:5,children:[for(final play in trick) Builder(builder:(_){
       final index=(play['player'] as num).toInt(), value=play['card']?.toString()??'', red=value.contains('♥')||value.contains('♦');
       final name=index>=0&&index<players.length?players[index]['name']?.toString()??'Player':'Player';
-      return Container(padding:const EdgeInsets.symmetric(horizontal:9,vertical:7),decoration:BoxDecoration(color:const Color(0xFF203B32),borderRadius:BorderRadius.circular(10),border:Border.all(color:const Color(0x557CC6A3))),
-        child:Row(mainAxisSize:MainAxisSize.min,children:[Text(name,style:const TextStyle(color:Colors.white,fontSize:11,fontWeight:FontWeight.w800)),const SizedBox(width:7),
-          Container(padding:const EdgeInsets.symmetric(horizontal:7,vertical:4),decoration:BoxDecoration(color:const Color(0xFFF4F0E6),borderRadius:BorderRadius.circular(6)),child:Text(value,style:TextStyle(color:red?const Color(0xFFB51F32):const Color(0xFF18251F),fontSize:13,fontWeight:FontWeight.w900))) ]));
+      return Container(padding:const EdgeInsets.symmetric(horizontal:7,vertical:5),decoration:BoxDecoration(color:const Color(0xFF203B32),borderRadius:BorderRadius.circular(9),border:Border.all(color:const Color(0x557CC6A3))),
+        child:Row(mainAxisSize:MainAxisSize.min,children:[Text(name,style:const TextStyle(color:Colors.white,fontSize:10,fontWeight:FontWeight.w800)),const SizedBox(width:5),
+          Container(padding:const EdgeInsets.symmetric(horizontal:6,vertical:3),decoration:BoxDecoration(color:const Color(0xFFF4F0E6),borderRadius:BorderRadius.circular(5)),child:Text(value,style:TextStyle(color:red?const Color(0xFFB51F32):const Color(0xFF18251F),fontSize:11,fontWeight:FontWeight.w900))) ]));
     })]),
   ]));
 Widget _callBreakTable({required List<Map<String,dynamic>> players,required List<Map<String,dynamic>> trick,required int turn,required int me,int? winner}) =>

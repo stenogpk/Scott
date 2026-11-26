@@ -1,7 +1,7 @@
 name: SCOTT Android CI
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "feature/cloudflare-agora-token-server"]
   workflow_dispatch:
 concurrency:
   group: scott-android-${{ github.ref }}
@@ -11,6 +11,7 @@ permissions:
   contents: read
 jobs:
   android:
+    if: github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[build-android]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

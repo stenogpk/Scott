@@ -109,8 +109,7 @@ class CallBreakEngine {
   /// card currently played in the led suit, they must play a higher card.
   /// Any higher card is valid; playing the highest available card is not
   /// required. If none can overtake, any card of the led suit is valid.
-  /// When void in the led suit, any card (including an optional spade cut)
-  /// may be played.
+  /// When void in the led suit, a spade cut is mandatory if available.
   static List<PlayingCard> legalCardsForHand(
     List<PlayingCard> hand, {
     required CardSuit? leadSuit,
@@ -118,7 +117,10 @@ class CallBreakEngine {
   }) {
     if (leadSuit == null) return List.of(hand);
     final follow = hand.where((c) => c.suit == leadSuit).toList();
-    if (follow.isEmpty) return List.of(hand);
+    if (follow.isEmpty) {
+      final trumps = hand.where((c) => c.suit == CardSuit.spades).toList();
+      return trumps.isNotEmpty ? trumps : List.of(hand);
+    }
 
     final highestInLeadSuit = trick
         .where((play) => play.card.suit == leadSuit)

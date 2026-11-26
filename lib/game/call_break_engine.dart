@@ -41,6 +41,13 @@ class CallBreakEngine {
     return suit == 0 ? power(a).compareTo(power(b)) : suit;
   }
 
+  static double calculateRoundScore({required int bid, required int tricks}) {
+    final extra = tricks - bid;
+    return (extra < 0 || tricks > bid * 2)
+        ? -bid.toDouble()
+        : bid + extra / 10;
+  }
+
   int get totalBids => players.fold(0, (sum, p) => sum + p.bid);
   bool get bidding => players.any((p) => p.bid == 0);
   bool get matchComplete => round >= roundsToPlay && complete;
@@ -144,10 +151,7 @@ class CallBreakEngine {
     if (trickNumber == 13) {
       final roundPlayers = <Map<String, dynamic>>[];
       for (final p in players) {
-        final extra = p.tricks - p.bid;
-        final roundScore = (extra < 0 || p.tricks > p.bid * 2)
-            ? -p.bid.toDouble()
-            : p.bid + extra / 10;
+        final roundScore = calculateRoundScore(bid: p.bid, tricks: p.tricks);
         p.score += roundScore;
         roundPlayers.add({
           'id': p.id, 'name': p.name, 'bid': p.bid,
@@ -191,7 +195,9 @@ class CallBreakEngine {
     'redealRequired': redealRequired, 'winnerName': winnerName,
     'players': [for (final p in players) {
       'id': p.id, 'name': p.name, 'isBot': p.isBot, 'bid': p.bid,
-      'tricks': p.tricks, 'score': p.score, 'handCount': p.hand.length,
+      'tricks': p.tricks, 'score': p.score,
+      'roundScore': calculateRoundScore(bid: p.bid, tricks: p.tricks),
+      'handCount': p.hand.length,
     }],
     'trick': [for (final t in trick) {'player': t.player, 'card': cardToJson(t.card)}],
     'lastTrick': [for (final t in lastTrick) {'player': t.player, 'card': cardToJson(t.card)}],

@@ -434,11 +434,8 @@ void _showScorecard(BuildContext context, {
       'players': [for (final p in players) {
         'id': p['id'], 'name': p['name'], 'bid': p['bid'] ?? 0,
         'tricks': p['tricks'] ?? 0,
-        'roundScore': (p['tricks'] as num? ?? 0) < (p['bid'] as num? ?? 0)
-            ? -((p['bid'] as num? ?? 0).toDouble())
-            : (p['bid'] as num? ?? 0).toDouble() +
-                (((p['tricks'] as num? ?? 0) - (p['bid'] as num? ?? 0)) / 10),
-        'totalScore': p['score'] ?? 0, 'winner': false,
+        'roundScore': p['roundScore'] ?? 0,
+        'winner': false,
       }],
     });
   }
@@ -485,16 +482,26 @@ void _showScorecard(BuildContext context, {
                       const Row(children: [
                         Expanded(flex: 4, child: Text('खिलाड़ी', style: TextStyle(color: Colors.white54, fontSize: 10))),
                         Expanded(flex: 5, child: Text('बोली • ट्रिक', style: TextStyle(color: Colors.white54, fontSize: 10))),
-                        Expanded(flex: 2, child: Text('राउंड*', textAlign: TextAlign.end, style: TextStyle(color: Colors.white54, fontSize: 10))),
-                        Expanded(flex: 2, child: Text('कुल', textAlign: TextAlign.end, style: TextStyle(color: Colors.white54, fontSize: 10))),
+                        Expanded(flex: 3, child: Text('इस राउंड का स्कोर', textAlign: TextAlign.end, style: TextStyle(color: Colors.white54, fontSize: 10))),
                       ]),
                       if (roundData['inProgress'] == true)
                         const Padding(
                           padding: EdgeInsets.only(top: 3, bottom: 3),
-                          child: Text('*चाल के साथ बदलता अस्थायी स्कोर',
+                          child: Text('स्कोर हर पूरी हुई चाल के बाद अपडेट होगा',
                             style: TextStyle(color: Colors.white54, fontSize: 9)),
                         ),
                       const Divider(color: Color(0x337CC6A3), height: 10),
+                      if (roundData['inProgress'] != true)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 5),
+                          child: Text(
+                            '🏆 राउंड विजेता: ${((roundData['players'] as List? ?? const [])
+                              .where((p) => (p as Map)['winner'] == true)
+                              .map((p) => (p as Map)['name']).join(' • '))}',
+                            style: const TextStyle(color: Color(0xFFFFD56A),
+                              fontSize: 13, fontWeight: FontWeight.w900),
+                          ),
+                        ),
                       for (final raw in (roundData['players'] as List? ?? const []))
                         Builder(builder: (_) {
                           final p = Map<String, dynamic>.from(raw as Map);
@@ -522,16 +529,11 @@ void _showScorecard(BuildContext context, {
                               Expanded(flex: 5, child: Text(
                                 'बोली ${p['bid']}  •  ट्रिक ${p['tricks']}',
                                 style: const TextStyle(color: Color(0xFFD5E7DE), fontSize: 11))),
-                              Expanded(flex: 2, child: Text(
+                              Expanded(flex: 3, child: Text(
                                 score == null ? '—' : score.toStringAsFixed(1),
                                 textAlign: TextAlign.end,
                                 style: TextStyle(
                                   color: isNegative ? const Color(0xFFFFB5BE) : Colors.white,
-                                  fontWeight: isWinner ? FontWeight.w900 : FontWeight.w700))),
-                              Expanded(flex: 2, child: Text(
-                                (p['totalScore'] as num? ?? 0).toStringAsFixed(1),
-                                textAlign: TextAlign.end,
-                                style: TextStyle(color: const Color(0xFFFFD56A),
                                   fontWeight: isWinner ? FontWeight.w900 : FontWeight.w700))),
                             ]),
                           );

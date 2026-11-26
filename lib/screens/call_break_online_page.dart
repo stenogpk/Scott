@@ -166,7 +166,7 @@ class _CallBreakOnlinePageState extends State<CallBreakOnlinePage> {
       TextField(controller: _name, maxLength: 18, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'आपका नाम', prefixIcon: Icon(Icons.person))),
       if (_room == null) ...[
         const SizedBox(height: 6),
-        DropdownButtonFormField<int>(initialValue: _rounds, decoration: const InputDecoration(labelText: 'मैच में राउंड'), items: [for (var n=1;n<=5;n++) DropdownMenuItem(value:n, child:Text('$n राउंड'))], onChanged: (v) { if(v!=null)setState(()=>_rounds=v); }),
+        DropdownButtonFormField<int>(initialValue: _rounds, decoration: const InputDecoration(labelText: 'मैच में राउंड'), items: [for (var n=1;n<=13;n++) DropdownMenuItem(value:n, child:Text('$n राउंड'))], onChanged: (v) { if(v!=null)setState(()=>_rounds=v); }),
         SwitchListTile(contentPadding: EdgeInsets.zero, value: _fillBots, onChanged: (v)=>setState(()=>_fillBots=v), title: const Text('खाली सीटों पर Bots भरें'), subtitle: const Text('1, 2, 3 या 4 असली खिलाड़ियों के साथ शुरू करें')),
         FilledButton.icon(onPressed: _busy ? null : _create, icon: const Icon(Icons.add_circle_outline), label: const Text('Create Room')),
         const Divider(height: 30),
@@ -189,7 +189,7 @@ class _CallBreakOnlinePageState extends State<CallBreakOnlinePage> {
       if (_busy) const Center(child: Padding(padding: EdgeInsets.all(18), child: CircularProgressIndicator())),
       if (_error != null) Padding(padding: const EdgeInsets.all(8), child: Text(_error!, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w700))),
       const SizedBox(height: 18),
-      const Text('नियम: कुल बोली कम-से-कम 9 • हर खिलाड़ी 13 पत्ते • स्पेड ट्रम्प • रंग हो तो वही चलाएँ • बड़ा पत्ता हो तो उससे काटें', style: TextStyle(color: Colors.blueGrey), textAlign: TextAlign.center),
+      const Text('नियम: कुल बोली कम-से-कम 9 • हर खिलाड़ी 13 पत्ते • स्पेड ट्रम्प • रंग हो तो वही चलाएँ • रंग न हो तो स्पेड से काटना जरूरी • 13वीं Trick अपने आप चलेगी', style: TextStyle(color: Colors.blueGrey), textAlign: TextAlign.center),
       const Center(child: Padding(padding: EdgeInsets.all(18), child: Text('Developed by Shartendu', style: TextStyle(color: Colors.blueGrey, fontSize: 11)))),
     ]))),
   );
@@ -247,7 +247,11 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
       while (mounted && guard++ < 20) {
         if (game.complete) break;
         final p = game.players[game.turn];
-        if (!p.isBot) break;
+        // On the thirteenth Trick each player has exactly one card.
+        // The host drives all four seats, including remote human players,
+        // through the existing per-card sync and animation timing.
+        final autoFinalCard = !game.bidding && game.trickNumber == 12 && p.hand.length == 1;
+        if (!p.isBot && !autoFinalCard) break;
         await Future<void>.delayed(const Duration(milliseconds: 720));
         var trickCompleted = false;
         if (game.bidding) {
@@ -318,7 +322,7 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
             padding:const EdgeInsets.symmetric(horizontal:8,vertical:2), labelPadding:EdgeInsets.zero,
             shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(8)),
             label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black,fontSize:14,fontWeight:FontWeight.w600)),
-            onPressed:!game.bidding && !game.complete && game.turn==me && game.legalCards(me).contains(c)?()=>_play(c):null)]),
+            onPressed:!game.bidding && !game.complete && game.trickNumber!=12 && game.turn==me && game.legalCards(me).contains(c)?()=>_play(c):null)]),
         ],
         if(game.bidding && mine) Wrap(spacing:6,children:[for(var n=1;n<=13;n++)ActionChip(label:Text('$n'),onPressed:()=>_bid(n))]),
         const Divider(color:Color(0x55FFFFFF)),
@@ -390,7 +394,7 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
       padding:const EdgeInsets.symmetric(horizontal:8,vertical:2), labelPadding:EdgeInsets.zero,
       shape:RoundedRectangleBorder(borderRadius:BorderRadius.circular(8)),
       label:Text(c.toString(),style:TextStyle(color:c.suit.isRed?Colors.red:Colors.black,fontSize:14,fontWeight:FontWeight.w600)),
-      onPressed:!bidding && turn==me ? ()=>_send({'type':'play','card':CallBreakEngine.cardToJson(c)}) : null)]),
+      onPressed:!bidding && (state['trickNumber'] as num).toInt()!=12 && turn==me ? ()=>_send({'type':'play','card':CallBreakEngine.cardToJson(c)}) : null)]),
     if(bidding&&turn==me)Wrap(spacing:6,children:[for(var n=1;n<=13;n++)ActionChip(label:Text('$n'),onPressed:()=>_send({'type':'bid','bid':n}))]),
     _turnBanner(
       title: bidding ? '${(players[turn] as Map)['name']} की बोली' : '${(players[turn] as Map)['name']} की चाल',

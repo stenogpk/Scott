@@ -617,15 +617,15 @@ class _CallBreakTableState extends State<_CallBreakTable> {
     final players = widget.players, trick = widget.trick; final winner = widget.winner;
     final self = widget.me >= 0 && widget.me < players.length ? widget.me : 0;
     final top = (self + 2) % 4, left = (self + 3) % 4, right = (self + 1) % 4;
-    Widget seat(int index) {
+    Widget seat(int index, double seatWidth) {
       final p = players[index], active = index == widget.turn, isMe = index == self;
-      return AnimatedContainer(duration: const Duration(milliseconds: 260), width: 116, padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+      return AnimatedContainer(duration: const Duration(milliseconds: 260), width: seatWidth, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
         decoration: BoxDecoration(color: active ? const Color(0xFF285E48) : const Color(0xCC09251F), borderRadius: BorderRadius.circular(14),
           border: Border.all(color: active ? const Color(0xFFFFD56A) : const Color(0x557CC6A3), width: active ? 2 : 1),
           boxShadow: [if(active) const BoxShadow(color: Color(0x88FFD56A), blurRadius: 13, spreadRadius: 1)]),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(isMe ? Icons.person_pin_circle : Icons.person, size: 15, color: active ? const Color(0xFFFFD56A) : Colors.white70), const SizedBox(width: 4),
-            Flexible(child: Text('${p['name'] ?? 'Player'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900)))]),
+            Flexible(child: Text('${p['name'] ?? 'Player'}', maxLines: 2, softWrap: true, overflow: TextOverflow.visible, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 12, height: 1.05, fontWeight: FontWeight.w900)))]),
           const SizedBox(height: 3), Text('बोली ${p['bid'] == null || p['bid'] == 0 ? '—' : p['bid']}  •  हाथ ${p['tricks'] ?? 0}', style: const TextStyle(color: Color(0xFFD5E7DE), fontSize: 9, fontWeight: FontWeight.w600)),
           Text('${p['isBot'] == true ? 'BOT  •  ' : ''}स्कोर ${(p['score'] as num? ?? 0).toStringAsFixed(1)}', style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 9, fontWeight: FontWeight.w800)),
         ]));
@@ -640,12 +640,14 @@ class _CallBreakTableState extends State<_CallBreakTable> {
       Container(height: 366, margin: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(borderRadius: BorderRadius.circular(30),
         gradient: const RadialGradient(center: Alignment(0, -.12), radius: 1.25, colors: [Color(0xFF286B4D), Color(0xFF124331), Color(0xFF08271F)]), border: Border.all(color: const Color(0xFFD2B36B), width: 3), boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 18, offset: Offset(0, 8))]),
         child: LayoutBuilder(builder: (context, bounds) {
-          final w = bounds.maxWidth; final positions = <int,Offset>{0:Offset(w/2-24,224),1:Offset(w-76,150),2:Offset(w/2-24,94),3:const Offset(8,150)};
+          final w = bounds.maxWidth;
+          final seatWidth = (w * .42).clamp(128.0, 154.0);
+          final positions = <int,Offset>{0:Offset(w/2-24,224),1:Offset(w-seatWidth-5,150),2:Offset(w/2-24,94),3:const Offset(5,150)};
           final rel = winner == null ? -1 : (winner-self+4)%4;
-          final target = rel==0 ? Offset(w/2-24,300) : rel==1 ? Offset(w-74,142) : rel==2 ? Offset(w/2-24,8) : const Offset(4,142);
+          final target = rel==0 ? Offset(w/2-24,300) : rel==1 ? Offset(w-seatWidth-4,142) : rel==2 ? Offset(w/2-24,8) : const Offset(4,142);
           return Stack(clipBehavior: Clip.hardEdge, children: [
             const Positioned(top:83,left:0,right:0,child:Center(child:Text('SCOTT  •  CALL BREAK',style:TextStyle(color:Color(0x77FFFFFF),letterSpacing:3,fontSize:10,fontWeight:FontWeight.w900)))),
-            Positioned(top:8,left:w/2-58,child:seat(top)), Positioned(left:5,top:144,child:seat(left)), Positioned(right:5,top:144,child:seat(right)), Positioned(bottom:7,left:w/2-58,child:seat(self)),
+            Positioned(top:8,left:w/2-seatWidth/2,child:seat(top,seatWidth)), Positioned(left:5,top:144,child:seat(left,seatWidth)), Positioned(right:5,top:144,child:seat(right,seatWidth)), Positioned(bottom:7,left:w/2-seatWidth/2,child:seat(self,seatWidth)),
             for (final play in trick) Builder(builder: (_) { final player=(play['player'] as num).toInt(); final relative=(player-self+4)%4; final pos=moving?target:positions[relative]!;
               return AnimatedPositioned(key:ValueKey('play-$player-${play['card']}'),duration:Duration(milliseconds:moving?1050:420),curve:moving?Curves.easeInOutCubic:Curves.easeOutBack,left:pos.dx,top:pos.dy,
                 child:AnimatedOpacity(duration:const Duration(milliseconds:1050),opacity:moving?0:1,child:Transform.scale(scale: moving ? .62 : 1,child:card(play)))); }),

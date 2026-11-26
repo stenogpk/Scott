@@ -1,4 +1,4 @@
-name: SCOTT Android CI # approved Android APK build trigger; current approved APK
+name: SCOTT Android CI # approved Android APK build trigger; thirteen-round rules APK
 on:
   push:
     branches: ["main", "feature/cloudflare-agora-token-server"]

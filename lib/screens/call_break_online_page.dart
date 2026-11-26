@@ -321,6 +321,9 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
         const SizedBox(height:12),
         VoiceChatPanel(roomCode:widget.roomCode,getFirebaseIdToken:widget.service.getCurrentIdToken),
         const Center(child:Text('Developed by Shartendu',style:TextStyle(color:Colors.white70,fontSize:11))),
+        _scorecardButton(context,
+          players: [for (final p in game.players) {'id':p.id,'name':p.name,'bid':p.bid,'tricks':p.tricks,'score':p.score}],
+          history: game.roundHistory, currentRound: game.round, roundComplete: game.complete),
       ]))),Positioned.fill(child:IgnorePointer(child:ConfettiWidget(confettiController:_confetti,blastDirectionality:BlastDirectionality.explosive,shouldLoop:false,numberOfParticles:35,gravity:0.18,colors:const [Color(0xFFFFD56A),Colors.white,Color(0xFF16A6A1)]))) ]));
   }
 }
@@ -383,9 +386,138 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
     if(notice!=null)Text(notice!,style:const TextStyle(color:Colors.red)),
     VoiceChatPanel(roomCode:widget.roomCode,getFirebaseIdToken:widget.getToken),
     const Center(child:Text('Developed by Shartendu')),
+    _scorecardButton(context,
+      players: [for (final p in players) Map<String,dynamic>.from(p as Map)],
+      history: (state['roundHistory'] as List? ?? const []),
+      currentRound: (state['round'] as num).toInt(),
+      roundComplete: state['complete'] == true),
   ])));
 }
 
+
+
+Widget _scorecardButton(BuildContext context, {
+  required List<dynamic> players,
+  required List<dynamic> history,
+  required int currentRound,
+  required bool roundComplete,
+}) => Padding(
+  padding: const EdgeInsets.only(top: 14, bottom: 8),
+  child: OutlinedButton.icon(
+    style: OutlinedButton.styleFrom(
+      foregroundColor: const Color(0xFFFFD56A),
+      side: const BorderSide(color: Color(0x99FFD56A)),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 13),
+      backgroundColor: const Color(0xFF12372D),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    ),
+    onPressed: () => _showScorecard(context, players: players, history: history,
+      currentRound: currentRound, roundComplete: roundComplete),
+    icon: const Icon(Icons.leaderboard_rounded),
+    label: const Text('स्कोरकार्ड', style: TextStyle(fontWeight: FontWeight.w900)),
+  ),
+);
+
+void _showScorecard(BuildContext context, {
+  required List<dynamic> players,
+  required List<dynamic> history,
+  required int currentRound,
+  required bool roundComplete,
+}) {
+  final rounds = <Map<String, dynamic>>[
+    for (final item in history) Map<String, dynamic>.from(item as Map),
+  ];
+  if (!roundComplete) {
+    rounds.add({
+      'round': currentRound,
+      'inProgress': true,
+      'players': [for (final p in players) {
+        'id': p['id'], 'name': p['name'], 'bid': p['bid'] ?? 0,
+        'tricks': p['tricks'] ?? 0, 'roundScore': null,
+        'totalScore': p['score'] ?? 0,
+      }],
+    });
+  }
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: const Color(0xFF0B211B),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+    ),
+    builder: (sheetContext) => SafeArea(
+      child: SizedBox(
+        height: MediaQuery.of(sheetContext).size.height * .78,
+        child: Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 16, 10, 8),
+            child: Row(children: [
+              const Icon(Icons.leaderboard_rounded, color: Color(0xFFFFD56A)),
+              const SizedBox(width: 9),
+              const Expanded(child: Text('गेम स्कोरकार्ड',
+                style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w900))),
+              IconButton(onPressed: () => Navigator.pop(sheetContext),
+                icon: const Icon(Icons.close, color: Colors.white70)),
+            ]),
+          ),
+          const Divider(color: Color(0x447CC6A3), height: 1),
+          Expanded(child: rounds.isEmpty
+            ? const Center(child: Text('पहला राउंड पूरा होने पर स्कोर यहाँ दिखेगा।',
+                style: TextStyle(color: Colors.white70)))
+            : ListView(padding: const EdgeInsets.all(12), children: [
+                for (final roundData in rounds) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xE6133028),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0x667CC6A3)),
+                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('राउंड ${roundData['round']}${roundData['inProgress'] == true ? ' • जारी है' : ''}',
+                        style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 15, fontWeight: FontWeight.w900)),
+                      const SizedBox(height: 8),
+                      for (final raw in (roundData['players'] as List? ?? const []))
+                        Builder(builder: (_) {
+                          final p = Map<String, dynamic>.from(raw as Map);
+                          final score = p['roundScore'];
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 5),
+                            child: Row(children: [
+                              Expanded(flex: 4, child: Text('${p['name']}',
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800))),
+                              Expanded(flex: 5, child: Text(
+                                'बोली ${p['bid']}  •  ट्रिक ${p['tricks']}',
+                                style: const TextStyle(color: Color(0xFFD5E7DE), fontSize: 11))),
+                              Expanded(flex: 2, child: Text(
+                                score == null ? '—' : (score as num).toStringAsFixed(1),
+                                textAlign: TextAlign.end,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900))),
+                              Expanded(flex: 2, child: Text(
+                                (p['totalScore'] as num? ?? 0).toStringAsFixed(1),
+                                textAlign: TextAlign.end,
+                                style: const TextStyle(color: Color(0xFFFFD56A), fontWeight: FontWeight.w900))),
+                            ]),
+                          );
+                        }),
+                      const Divider(color: Color(0x337CC6A3), height: 10),
+                      const Row(children: [
+                        Expanded(flex: 4, child: Text('खिलाड़ी', style: TextStyle(color: Colors.white54, fontSize: 10))),
+                        Expanded(flex: 5, child: Text('बोली • ट्रिक', style: TextStyle(color: Colors.white54, fontSize: 10))),
+                        Expanded(flex: 2, child: Text('राउंड', textAlign: TextAlign.end, style: TextStyle(color: Colors.white54, fontSize: 10))),
+                        Expanded(flex: 2, child: Text('कुल', textAlign: TextAlign.end, style: TextStyle(color: Colors.white54, fontSize: 10))),
+                      ]),
+                    ]),
+                  ),
+                ],
+              ])),
+        ]),
+      ),
+    ),
+  );
+}
 
 class _CallBreakTable extends StatefulWidget {
   const _CallBreakTable({required this.players, required this.trick, required this.turn, required this.me, this.winner});

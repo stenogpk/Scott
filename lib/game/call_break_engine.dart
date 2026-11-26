@@ -29,6 +29,7 @@ class CallBreakEngine {
   int roundsToPlay = 5;
   CardSuit? leadSuit;
   final List<({int player, PlayingCard card})> trick = [];
+  final List<Map<String, dynamic>> roundHistory = [];
   List<({int player, PlayingCard card})> lastTrick = [];
   int? lastTrickWinner;
   bool complete = false;
@@ -141,10 +142,19 @@ class CallBreakEngine {
     trickLead = winner;
     turn = winner;
     if (trickNumber == 13) {
+      final roundPlayers = <Map<String, dynamic>>[];
       for (final p in players) {
         final extra = p.tricks - p.bid;
-        p.score += (extra < 0 || p.tricks > p.bid * 2) ? -p.bid.toDouble() : p.bid + extra / 10;
+        final roundScore = (extra < 0 || p.tricks > p.bid * 2)
+            ? -p.bid.toDouble()
+            : p.bid + extra / 10;
+        p.score += roundScore;
+        roundPlayers.add({
+          'id': p.id, 'name': p.name, 'bid': p.bid,
+          'tricks': p.tricks, 'roundScore': roundScore, 'totalScore': p.score,
+        });
       }
+      roundHistory.add({'round': round, 'players': roundPlayers});
       complete = true;
     }
   }
@@ -171,6 +181,7 @@ class CallBreakEngine {
     'round': round, 'roundsToPlay': roundsToPlay, 'dealer': dealer, 'turn': turn,
     'trickLead': trickLead, 'trickNumber': trickNumber, 'leadSuit': leadSuit?.name,
     'complete': complete, 'bidding': bidding, 'totalBids': totalBids,
+    'roundHistory': roundHistory,
     'redealRequired': redealRequired, 'winnerName': winnerName,
     'players': [for (final p in players) {
       'id': p.id, 'name': p.name, 'isBot': p.isBot, 'bid': p.bid,

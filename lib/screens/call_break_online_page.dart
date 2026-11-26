@@ -641,7 +641,7 @@ class _CallBreakTableState extends State<_CallBreakTable> {
         gradient: const RadialGradient(center: Alignment(0, -.12), radius: 1.25, colors: [Color(0xFF286B4D), Color(0xFF124331), Color(0xFF08271F)]), border: Border.all(color: const Color(0xFFD2B36B), width: 3), boxShadow: const [BoxShadow(color: Colors.black54, blurRadius: 18, offset: Offset(0, 8))]),
         child: LayoutBuilder(builder: (context, bounds) {
           final w = bounds.maxWidth;
-          final seatWidth = (w * .42).clamp(128.0, 154.0);
+          final seatWidth = (w * .42).clamp(128.0, 154.0).toDouble();
           final positions = <int,Offset>{0:Offset(w/2-24,224),1:Offset(w-seatWidth-5,150),2:Offset(w/2-24,94),3:const Offset(5,150)};
           final rel = winner == null ? -1 : (winner-self+4)%4;
           final target = rel==0 ? Offset(w/2-24,300) : rel==1 ? Offset(w-seatWidth-4,142) : rel==2 ? Offset(w/2-24,8) : const Offset(4,142);

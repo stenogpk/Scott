@@ -142,7 +142,7 @@ class _CallBreakOnlinePageState extends State<CallBreakOnlinePage> {
         SizedBox(height: 8),
         Text('लकड़ी • CALL BREAK', textAlign: TextAlign.center,
           style: TextStyle(color: Color(0xFFD9B76E), fontSize: 23, fontWeight: FontWeight.w900, letterSpacing: .6)),
-        Text('चार खिलाड़ी • 13 ट्रिक • स्पेड ट्रम्प', style: TextStyle(color: Colors.white)),
+        Text('चार खिलाड़ी • 13 चाल • स्पेड ट्रम्प', style: TextStyle(color: Colors.white)),
       ])),
       const SizedBox(height: 16),
       TextField(controller: _name, maxLength: 18, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'आपका नाम', prefixIcon: Icon(Icons.person))),
@@ -314,7 +314,7 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
         
         if(game.complete) Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(children:[
           Text(game.matchComplete?'मैच विजेता: ${game.winnerName}':'राउंड स्कोर',style:const TextStyle(fontSize:20,fontWeight:FontWeight.w900)),
-          for(final p in game.players)ListTile(title:Text(p.name),subtitle:Text('बोली ${p.bid} • ट्रिक ${p.tricks}'),trailing:Text(p.score.toStringAsFixed(1))),
+          for(final p in game.players)ListTile(title:Text(p.name),subtitle:Text('बोली ${p.bid} • चाल ${p.tricks}'),trailing:Text(p.score.toStringAsFixed(1))),
           if(!game.matchComplete)FilledButton(onPressed:_next,child:const Text('अगला राउंड')),
         ]))),
         if(_notice!=null)Text(_notice!,style:const TextStyle(color:Colors.red)),
@@ -481,7 +481,7 @@ void _showScorecard(BuildContext context, {
                       const SizedBox(height: 8),
                       const Row(children: [
                         Expanded(flex: 4, child: Text('खिलाड़ी', style: TextStyle(color: Colors.white54, fontSize: 10))),
-                        Expanded(flex: 5, child: Text('बोली • ट्रिक', style: TextStyle(color: Colors.white54, fontSize: 10))),
+                        Expanded(flex: 5, child: Text('बोली • चाल', style: TextStyle(color: Colors.white54, fontSize: 10))),
                         Expanded(flex: 3, child: Text('इस राउंड का स्कोर', textAlign: TextAlign.end, style: TextStyle(color: Colors.white54, fontSize: 10))),
                       ]),
                       if (roundData['inProgress'] == true)
@@ -527,7 +527,7 @@ void _showScorecard(BuildContext context, {
                                     color: Color(0xFFFFD56A), size: 13)),
                               ])),
                               Expanded(flex: 5, child: Text(
-                                'बोली ${p['bid']}  •  ट्रिक ${p['tricks']}',
+                                'बोली ${p['bid']}  •  चाल ${p['tricks']}',
                                 style: const TextStyle(color: Color(0xFFD5E7DE), fontSize: 11))),
                               Expanded(flex: 3, child: Text(
                                 score == null ? '—' : score.toStringAsFixed(1),
@@ -581,7 +581,7 @@ class _CallBreakTableState extends State<_CallBreakTable> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(isMe ? Icons.person_pin_circle : Icons.person, size: 15, color: active ? const Color(0xFFFFD56A) : Colors.white70), const SizedBox(width: 4),
             Flexible(child: Text('${p['name'] ?? 'Player'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900)))]),
-          const SizedBox(height: 3), Text('बोली ${p['bid'] == null || p['bid'] == 0 ? '—' : p['bid']}  •  ट्रिक ${p['tricks'] ?? 0}', style: const TextStyle(color: Color(0xFFD5E7DE), fontSize: 9, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 3), Text('बोली ${p['bid'] == null || p['bid'] == 0 ? '—' : p['bid']}  •  चाल ${p['tricks'] ?? 0}', style: const TextStyle(color: Color(0xFFD5E7DE), fontSize: 9, fontWeight: FontWeight.w600)),
           Text('${p['isBot'] == true ? 'BOT  •  ' : ''}स्कोर ${(p['score'] as num? ?? 0).toStringAsFixed(1)}', style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 9, fontWeight: FontWeight.w800)),
         ]));
     }
@@ -606,7 +606,7 @@ class _CallBreakTableState extends State<_CallBreakTable> {
                 child:AnimatedOpacity(duration:const Duration(milliseconds:1050),opacity:moving?0:1,child:Transform.scale(scale: moving ? .62 : 1,child:card(play)))); }),
             if (winner != null && trick.length == 4) Positioned(top:184,left:0,right:0,child:Center(child:Container(padding:const EdgeInsets.symmetric(horizontal:16,vertical:9),
               decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFFFFE08A),Color(0xFFD4A83F)]),borderRadius:BorderRadius.circular(22),border:Border.all(color:Colors.white,width:1.5),boxShadow:const [BoxShadow(color:Colors.black45,blurRadius:12,offset:Offset(0,4))]),
-              child:Row(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.emoji_events,color:Color(0xFF38280A),size:18),const SizedBox(width:6),Text('${players[winner]['name']}  •  इस ट्रिक का विजेता',style:const TextStyle(color:Color(0xFF38280A),fontSize:12,fontWeight:FontWeight.w900))])))),
+              child:Row(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.emoji_events,color:Color(0xFF38280A),size:18),const SizedBox(width:6),Text('${players[winner]['name']}  •  इस चाल का विजेता',style:const TextStyle(color:Color(0xFF38280A),fontSize:12,fontWeight:FontWeight.w900))])))),
             if (trick.isEmpty) const Positioned(left:0,right:0,top:174,child:Center(child:Text('कार्ड की चाल यहाँ आएगी',style:TextStyle(color:Color(0x88FFFFFF),fontSize:10)))),
           ]);
         })),
@@ -652,13 +652,13 @@ Widget _turnBanner({required String title, required String subtitle, required bo
 );
 
 Widget _tableHeader(CallBreakEngine g)=>Container(padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:const Color(0xFF142B45),borderRadius:BorderRadius.circular(16)),child:Column(children:[
-  Text('राउंड ${g.round}/${g.roundsToPlay} • ट्रिक ${g.trickNumber+1}/13',style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800)),
+  Text('राउंड ${g.round}/${g.roundsToPlay} • चाल ${g.trickNumber+1}/13',style:const TextStyle(color:Colors.white,fontWeight:FontWeight.w800)),
   Text(g.bidding?'कुल बोली ${g.totalBids} (कम-से-कम 9)':'स्पेड ♠ ट्रम्प',style:const TextStyle(color:Color(0xFFD9B76E),fontWeight:FontWeight.w900,fontSize:18)),
 ]));
-Widget _guestHeader(Map<String,dynamic> s)=>Container(padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:const Color(0xFF142B45),borderRadius:BorderRadius.circular(16)),child:Column(children:[Text('राउंड ${s['round']}/${s['roundsToPlay']} • ट्रिक ${(s['trickNumber'] as num)+1}/13',style:const TextStyle(color:Colors.white)),Text('कुल बोली ${s['totalBids']} • स्पेड ट्रम्प',style:const TextStyle(color:Color(0xFFD9B76E),fontWeight:FontWeight.w900,fontSize:18))]));
+Widget _guestHeader(Map<String,dynamic> s)=>Container(padding:const EdgeInsets.all(14),decoration:BoxDecoration(color:const Color(0xFF142B45),borderRadius:BorderRadius.circular(16)),child:Column(children:[Text('राउंड ${s['round']}/${s['roundsToPlay']} • चाल ${(s['trickNumber'] as num)+1}/13',style:const TextStyle(color:Colors.white)),Text('कुल बोली ${s['totalBids']} • स्पेड ट्रम्प',style:const TextStyle(color:Color(0xFFD9B76E),fontWeight:FontWeight.w900,fontSize:18))]));
 class _CallBreakRules extends StatelessWidget { const _CallBreakRules(); @override Widget build(BuildContext context)=>const SafeArea(child:Padding(padding:EdgeInsets.all(20),child:SingleChildScrollView(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
   Text('लकड़ी • CALL BREAK के नियम',style:TextStyle(fontSize:22,fontWeight:FontWeight.w900)),
   Text('चार खिलाड़ी • 52 पत्ते • प्रत्येक को 13 पत्ते। स्पेड (♠) ट्रम्प है। हर खिलाड़ी 1 से 13 तक बोली लगाएगा और सभी बोलियों का योग कम-से-कम 9 होना चाहिए।'),
   SizedBox(height:10),Text('जिस रंग से चाल शुरू हुई है, वह रंग आपके पास हो तो वही चलाना अनिवार्य है। उस रंग में यदि टेबल पर पड़े सबसे बड़े पत्ते से बड़ा पत्ता आपके पास है, तो उससे बड़ा पत्ता चलाना जरूरी है; इनमें से कोई भी बड़ा पत्ता चुन सकते हैं, सबसे बड़ा ही चलाना जरूरी नहीं। बड़ा पत्ता न हो तो उसी रंग का कोई भी पत्ता चल सकता है। रंग न होने पर स्पेड से काटना वैकल्पिक है—आप कोई दूसरा पत्ता भी चला सकते हैं। स्पेड ट्रम्प है।'),
-  SizedBox(height:10),Text('बोली पूरी न होने पर बोली के अंक कटेंगे। बोली पूरी होने पर बोली के अंक मिलेंगे और हर अतिरिक्त ट्रिक पर 0.1 अंक जुड़ेंगे। मैच 5 से 13 राउंड का होगा।'),
+  SizedBox(height:10),Text('बोली पूरी न होने पर बोली के अंक कटेंगे। बोली पूरी होने पर बोली के अंक मिलेंगे और हर अतिरिक्त चाल पर 0.1 अंक जुड़ेंगे। मैच 5 से 13 राउंड का होगा।'),
 ]))));}

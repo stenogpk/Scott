@@ -106,17 +106,23 @@ class FirebaseRoomService {
     final room = await getRoom(code);
     if (room.hostId != _userId) throw StateError('Only the host can receive player actions.');
     yield* Stream.periodic(interval).asyncMap((_) async {
-      final response = await _client.get(_pathUri('rooms/${code.toUpperCase()}/actions'));
-      if (response.statusCode != 200 || response.body == 'null') return <Map<String, dynamic>>[];
-      final raw = jsonDecode(response.body) as Map;
-      final actions = <Map<String, dynamic>>[];
-      for (final entry in raw.entries) {
-        if (entry.value is Map) {
-          actions.add(Map<String, dynamic>.from(entry.value as Map));
-          await _deletePath('rooms/${code.toUpperCase()}/actions/${entry.key}');
+      try {
+        final response = await _client.get(_pathUri('rooms/${code.toUpperCase()}/actions'));
+        if (response.statusCode != 200 || response.body == 'null') return <Map<String, dynamic>>[];
+        final raw = jsonDecode(response.body) as Map;
+        final actions = <Map<String, dynamic>>[];
+        for (final entry in raw.entries) {
+          if (entry.value is Map) {
+            actions.add(Map<String, dynamic>.from(entry.value as Map));
+            await _deletePath('rooms/${code.toUpperCase()}/actions/${entry.key}');
+          }
         }
+        return actions;
+      } catch (_) {
+        // A temporary fetch/delete failure must not terminate the polling stream.
+        // The next interval retries automatically when connectivity returns.
+        return <Map<String, dynamic>>[];
       }
-      return actions;
     });
   }
 
@@ -124,7 +130,14 @@ class FirebaseRoomService {
     await _ensureSignedIn();
     final id = _userId!;
     yield await _getGameMessage(code, id);
-    yield* Stream.periodic(interval).asyncMap((_) => _getGameMessage(code, id));
+    yield* Stream.periodic(interval).asyncMap((_) async {
+      try {
+        return await _getGameMessage(code, id);
+      } catch (_) {
+        // Keep guest updates alive across temporary network failures.
+        return <String, dynamic>{'type': 'retry'};
+      }
+    });
   }
 
   Future<Map<String, dynamic>> _getGameMessage(String code, String id) async {

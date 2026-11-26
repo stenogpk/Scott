@@ -478,6 +478,13 @@ void _showScorecard(BuildContext context, {
                       Text('राउंड ${roundData['round']}${roundData['inProgress'] == true ? ' • जारी है' : ''}',
                         style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 15, fontWeight: FontWeight.w900)),
                       const SizedBox(height: 8),
+                      const Row(children: [
+                        Expanded(flex: 4, child: Text('खिलाड़ी', style: TextStyle(color: Colors.white54, fontSize: 10))),
+                        Expanded(flex: 5, child: Text('बोली • ट्रिक', style: TextStyle(color: Colors.white54, fontSize: 10))),
+                        Expanded(flex: 2, child: Text('राउंड', textAlign: TextAlign.end, style: TextStyle(color: Colors.white54, fontSize: 10))),
+                        Expanded(flex: 2, child: Text('कुल', textAlign: TextAlign.end, style: TextStyle(color: Colors.white54, fontSize: 10))),
+                      ]),
+                      const Divider(color: Color(0x337CC6A3), height: 10),
                       for (final raw in (roundData['players'] as List? ?? const []))
                         Builder(builder: (_) {
                           final p = Map<String, dynamic>.from(raw as Map);
@@ -503,12 +510,7 @@ void _showScorecard(BuildContext context, {
                           );
                         }),
                       const Divider(color: Color(0x337CC6A3), height: 10),
-                      const Row(children: [
-                        Expanded(flex: 4, child: Text('खिलाड़ी', style: TextStyle(color: Colors.white54, fontSize: 10))),
-                        Expanded(flex: 5, child: Text('बोली • ट्रिक', style: TextStyle(color: Colors.white54, fontSize: 10))),
-                        Expanded(flex: 2, child: Text('राउंड', textAlign: TextAlign.end, style: TextStyle(color: Colors.white54, fontSize: 10))),
-                        Expanded(flex: 2, child: Text('कुल', textAlign: TextAlign.end, style: TextStyle(color: Colors.white54, fontSize: 10))),
-                      ]),
+
                     ]),
                   ),
                 ],

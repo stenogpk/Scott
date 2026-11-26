@@ -531,14 +531,16 @@ Widget _roundScoreSheet(Map<String, dynamic> roundData) {
           ]),
           for (var trickNo = 1; trickNo <= 13; trickNo++)
             Builder(builder: (_) {
-              final entry = rows.where((r) => (r['trick'] as num?)?.toInt() == trickNo).firstOrNull;
+              final matchingRows = rows.where((r) => (r['trick'] as num?)?.toInt() == trickNo).toList();
+              final entry = matchingRows.isEmpty ? null : matchingRows.first;
               final snapshots = (entry?['players'] as List? ?? const [])
                   .map((p) => Map<String, dynamic>.from(p as Map)).toList();
               return Row(children: [
                 cell('चाल $trickNo', width: 92, bold: true, color: const Color(0xFFD5E7DE), alignment: Alignment.centerLeft),
                 for (final p in roundPlayers)
                   ...(() {
-                    final snap = snapshots.where((s) => s['id'] == p['id']).firstOrNull;
+                    final matchingSnapshots = snapshots.where((s) => s['id'] == p['id']).toList();
+                    final snap = matchingSnapshots.isEmpty ? null : matchingSnapshots.first;
                     final score = snap?['score'] as num?;
                     final negative = score != null && score < 0;
                     return [

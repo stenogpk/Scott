@@ -313,8 +313,7 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
         _previousTrickPanel([for (final p in game.players) {'name':p.name}], [for (final t in game.lastTrick) {'player':t.player,'card':t.card.toString()}]),
         
         if(game.complete) Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(children:[
-          Text(game.matchComplete?'मैच विजेता: ${game.winnerName}':'राउंड स्कोर',style:const TextStyle(fontSize:20,fontWeight:FontWeight.w900)),
-          for(final p in game.players)ListTile(title:Text(p.name),subtitle:Text('बोली ${p.bid} • हाथ ${p.tricks}'),trailing:Text(p.score.toStringAsFixed(1))),
+          const Text('राउंड पूरा • Final Scorecard उपलब्ध है',style:TextStyle(fontWeight:FontWeight.w900)),
           if(!game.matchComplete)FilledButton(onPressed:_next,child:const Text('अगला राउंड')),
         ]))),
         if(_notice!=null)Text(_notice!,style:const TextStyle(color:Colors.red)),
@@ -322,9 +321,7 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
         VoiceChatPanel(roomCode:widget.roomCode,getFirebaseIdToken:widget.service.getCurrentIdToken),
         const Center(child:Text('Developed by Shartendu',style:TextStyle(color:Colors.white70,fontSize:11))),
         _scorecardButton(context,
-          players: [for (final p in game.players) {'id':p.id,'name':p.name,'bid':p.bid,'tricks':p.tricks,'score':p.score,'roundScore':CallBreakEngine.calculateRoundScore(bid:p.bid,tricks:p.tricks)}],
-          history: game.roundHistory, trickHistory: game.trickHistory,
-          currentRound: game.round, roundComplete: game.complete),
+          history: game.roundHistory, currentRound: game.round, roundComplete: game.complete),
       ]))),Positioned.fill(child:IgnorePointer(child:ConfettiWidget(confettiController:_confetti,blastDirectionality:BlastDirectionality.explosive,shouldLoop:false,numberOfParticles:35,gravity:0.18,colors:const [Color(0xFFFFD56A),Colors.white,Color(0xFF16A6A1)]))) ]));
   }
 }
@@ -383,14 +380,12 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
     ),
     _previousTrickPanel([for (final p in players) Map<String,dynamic>.from(p as Map)], [for (final t in (state['lastTrick'] as List? ?? const [])) {'player':(t as Map)['player'],'card':CallBreakEngine.cardFromJson(Map<String,dynamic>.from(t['card'] as Map)).toString()}]),
 
-    if(state['complete']==true)Card(child:Column(children:[const Text('राउंड पूरा'),for(final p in players)ListTile(title:Text(p['name'].toString()),trailing:Text('${p['score']}'))])),
+    if(state['complete']==true)Card(child:Padding(padding:const EdgeInsets.all(12),child:const Text('राउंड पूरा • Final Scorecard उपलब्ध है',style:TextStyle(fontWeight:FontWeight.w900)))),
     if(notice!=null)Text(notice!,style:const TextStyle(color:Colors.red)),
     VoiceChatPanel(roomCode:widget.roomCode,getFirebaseIdToken:widget.getToken),
     const Center(child:Text('Developed by Shartendu')),
     _scorecardButton(context,
-      players: [for (final p in players) Map<String,dynamic>.from(p as Map)],
       history: (state['roundHistory'] as List? ?? const []),
-      trickHistory: (state['trickHistory'] as List? ?? const []),
       currentRound: (state['round'] as num).toInt(),
       roundComplete: state['complete'] == true),
   ])));
@@ -401,7 +396,6 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
 Widget _scorecardButton(BuildContext context, {
   required List<dynamic> players,
   required List<dynamic> history,
-  required List<dynamic> trickHistory,
   required int currentRound,
   required bool roundComplete,
 }) => Padding(
@@ -414,36 +408,19 @@ Widget _scorecardButton(BuildContext context, {
       backgroundColor: const Color(0xFF12372D),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
-    onPressed: () => _showScorecard(context, players: players, history: history,
-      trickHistory: trickHistory, currentRound: currentRound, roundComplete: roundComplete),
+    onPressed: () => _showScorecard(context, history: history,
+      currentRound: currentRound, roundComplete: roundComplete),
     icon: const Icon(Icons.leaderboard_rounded),
     label: const Text('स्कोरकार्ड', style: TextStyle(fontWeight: FontWeight.w900)),
   ),
 );
 
 void _showScorecard(BuildContext context, {
-  required List<dynamic> players,
   required List<dynamic> history,
-  required List<dynamic> trickHistory,
   required int currentRound,
   required bool roundComplete,
 }) {
-  final rounds = <Map<String, dynamic>>[
-    for (final item in history) Map<String, dynamic>.from(item as Map),
-  ];
-  if (!roundComplete) {
-    rounds.add({
-      'round': currentRound,
-      'inProgress': true,
-      'players': [for (final p in players) {
-        'id': p['id'], 'name': p['name'], 'bid': p['bid'] ?? 0,
-        'tricks': p['tricks'] ?? 0,
-        'roundScore': p['roundScore'] ?? 0,
-        'winner': false,
-      }],
-      'trickHistory': trickHistory,
-    });
-  }
+  final rounds = history.map((item) => Map<String, dynamic>.from(item as Map)).toList();
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
@@ -453,7 +430,7 @@ void _showScorecard(BuildContext context, {
     ),
     builder: (sheetContext) => SafeArea(
       child: SizedBox(
-        height: MediaQuery.of(sheetContext).size.height * .88,
+        height: MediaQuery.of(sheetContext).size.height * .84,
         child: Column(children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 13, 8, 8),
@@ -468,10 +445,31 @@ void _showScorecard(BuildContext context, {
           ),
           const Divider(color: Color(0x447CC6A3), height: 1),
           Expanded(child: rounds.isEmpty
-            ? const Center(child: Text('स्कोर यहाँ दिखेगा।', style: TextStyle(color: Colors.white70)))
-            : ListView(padding: const EdgeInsets.fromLTRB(10, 10, 10, 20), children: [
-                for (final roundData in rounds)
-                  _roundScoreSheet(roundData),
+            ? Center(child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.hourglass_bottom_rounded, color: Color(0xFFFFD56A), size: 38),
+                  const SizedBox(height: 12),
+                  Text('राउंड $currentRound अभी जारी है',
+                    style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900)),
+                  const SizedBox(height: 7),
+                  const Text('स्कोरकार्ड 13वीं Trick पूरी होने के बाद बनेगा।\nअभी कोई Final Score या Round Winner घोषित नहीं होगा।',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Color(0xFFD5E7DE), height: 1.5)),
+                ]),
+              ))
+            : ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 22), children: [
+                for (final roundData in rounds) _roundScoreSummary(roundData),
+                if (!roundComplete)
+                  Container(
+                    margin: const EdgeInsets.only(top: 2),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: const Color(0xFF12372D),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0x557CC6A3))),
+                    child: Text('राउंड $currentRound जारी है • इसकी Final Score Sheet 13वीं Trick के बाद जुड़ेगी।',
+                      style: const TextStyle(color: Color(0xFFD5E7DE), fontSize: 12)),
+                  ),
               ])),
         ]),
       ),
@@ -479,110 +477,102 @@ void _showScorecard(BuildContext context, {
   );
 }
 
-Widget _roundScoreSheet(Map<String, dynamic> roundData) {
-  final roundPlayers = (roundData['players'] as List? ?? const [])
-      .map((p) => Map<String, dynamic>.from(p as Map)).toList();
-  final rows = (roundData['trickHistory'] as List? ?? const [])
-      .map((item) => Map<String, dynamic>.from(item as Map)).toList();
-  final complete = roundData['inProgress'] != true;
-  final winnerNames = roundPlayers.where((p) => p['winner'] == true)
-      .map((p) => p['name'].toString()).join(' • ');
-  final totalWidth = 92.0 + roundPlayers.length * 204.0;
-
-  Widget cell(String value, {double width = 68, bool header = false, bool bold = false, Color? color, Alignment alignment = Alignment.center}) =>
-    Container(width: width, alignment: alignment, padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
-      decoration: BoxDecoration(color: header ? const Color(0xFF1B493B) : Colors.transparent,
-        border: Border.all(color: const Color(0x557CC6A3), width: .55)),
-      child: Text(value, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis,
-        style: TextStyle(color: color ?? (header ? const Color(0xFFFFD56A) : Colors.white),
-          fontSize: header ? 10 : 11, fontWeight: bold || header ? FontWeight.w900 : FontWeight.w600)));
-
-  Widget playerHeader(Map<String, dynamic> p) => SizedBox(width: 204, child: Column(children: [
-    Container(width: 204, padding: const EdgeInsets.symmetric(vertical: 7),
-      decoration: BoxDecoration(color: const Color(0xFF245B48), border: Border.all(color: const Color(0x667CC6A3))),
-      child: Text(p['name'].toString(), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis,
-        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900))),
-    Row(children: [
-      cell('Call', width: 68, header: true),
-      cell('Trick', width: 68, header: true),
-      cell('Score', width: 68, header: true),
-    ]),
-  ]));
+Widget _roundScoreSummary(Map<String, dynamic> roundData) {
+  final players = (roundData['players'] as List? ?? const [])
+      .map((raw) => Map<String, dynamic>.from(raw as Map)).toList();
+  final winners = players.where((p) => p['winner'] == true).toList();
+  final winnerNames = winners.map((p) => p['name'].toString()).join(' • ');
 
   return Container(
     margin: const EdgeInsets.only(bottom: 14),
-    padding: const EdgeInsets.all(9),
-    decoration: BoxDecoration(color: const Color(0xE6133028), borderRadius: BorderRadius.circular(15),
-      border: Border.all(color: const Color(0x887CC6A3))),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+        colors: [Color(0xFF173F32), Color(0xFF0E2B23)]),
+      borderRadius: BorderRadius.circular(17),
+      border: Border.all(color: const Color(0x887CC6A3)),
+      boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 9, offset: Offset(0, 4))],
+    ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        Expanded(child: Text('ROUND ${roundData['round']}',
-          style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1))),
-        if (!complete) const Text('LIVE', style: TextStyle(color: Color(0xFF83E0B2), fontSize: 10, fontWeight: FontWeight.w900)),
-        if (complete) const Icon(Icons.check_circle, color: Color(0xFF83E0B2), size: 17),
+        Expanded(child: Text('ROUND ${roundData['round']}  •  FINAL RESULT',
+          style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 15, fontWeight: FontWeight.w900, letterSpacing: .5))),
+        const Icon(Icons.check_circle_rounded, color: Color(0xFF83E0B2), size: 19),
       ]),
-      const SizedBox(height: 9),
-      SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(width: totalWidth, child: Column(children: [
-          Row(children: [
-            cell('Player', width: 92, header: true),
-            for (final p in roundPlayers) playerHeader(p),
+      const SizedBox(height: 5),
+      const Text('13/13 Tricks completed',
+        style: TextStyle(color: Color(0xFFBBD7CA), fontSize: 11)),
+      const SizedBox(height: 12),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        decoration: BoxDecoration(color: const Color(0xFF0A211A), borderRadius: BorderRadius.circular(11)),
+        child: const Row(children: [
+          Expanded(flex: 5, child: Text('PLAYER', style: TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.w900))),
+          Expanded(child: Text('CALL', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.w900))),
+          Expanded(child: Text('HANDS', textAlign: TextAlign.center, style: TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.w900))),
+          Expanded(flex: 2, child: Text('FINAL SCORE', textAlign: TextAlign.end, style: TextStyle(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.w900))),
+        ]),
+      ),
+      for (final p in players) Builder(builder: (_) {
+        final score = (p['roundScore'] as num?) ?? 0;
+        final won = p['winner'] == true;
+        final bid = (p['bid'] as num?)?.toInt() ?? 0;
+        final hands = (p['tricks'] as num?)?.toInt() ?? 0;
+        final result = hands < bid
+            ? 'बोली से कम • पेनल्टी'
+            : hands > bid * 2
+                ? 'बोली से दोगुने से अधिक • पेनल्टी'
+                : hands == bid
+                    ? 'बोली पूरी'
+                    : 'बोली से ${hands - bid} अतिरिक्त हाथ';
+        return Container(
+          margin: const EdgeInsets.only(top: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          decoration: BoxDecoration(
+            color: won ? const Color(0x3349A979) : score < 0 ? const Color(0x337A3444) : const Color(0x221B493B),
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(color: won ? const Color(0xFFFFD56A) : const Color(0x335B9A7E)),
+          ),
+          child: Column(children: [
+            Row(children: [
+              Expanded(flex: 5, child: Row(children: [
+                Flexible(child: Text(p['name'].toString(), maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.white, fontSize: 13,
+                    fontWeight: won ? FontWeight.w900 : FontWeight.w700))),
+                if (won) const Padding(padding: EdgeInsets.only(left: 4),
+                  child: Icon(Icons.emoji_events_rounded, color: Color(0xFFFFD56A), size: 15)),
+              ])),
+              Expanded(child: Text('$bid', textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFFD5E7DE), fontWeight: FontWeight.w700))),
+              Expanded(child: Text('$hands', textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFFD5E7DE), fontWeight: FontWeight.w700))),
+              Expanded(flex: 2, child: Text(score.toStringAsFixed(1), textAlign: TextAlign.end,
+                style: TextStyle(color: score < 0 ? const Color(0xFFFFA9B4) : const Color(0xFFFFD56A),
+                  fontSize: 16, fontWeight: FontWeight.w900))),
+            ]),
+            const SizedBox(height: 4),
+            Align(alignment: Alignment.centerLeft,
+              child: Text(result, style: TextStyle(color: won ? const Color(0xFFFFD56A) : const Color(0xFFBBD7CA), fontSize: 10))),
           ]),
-          for (var trickNo = 1; trickNo <= 13; trickNo++)
-            Builder(builder: (_) {
-              final matchingRows = rows.where((r) => (r['trick'] as num?)?.toInt() == trickNo).toList();
-              final entry = matchingRows.isEmpty ? null : matchingRows.first;
-              final snapshots = (entry?['players'] as List? ?? const [])
-                  .map((p) => Map<String, dynamic>.from(p as Map)).toList();
-              return Row(children: [
-                cell('चाल $trickNo', width: 92, bold: true, color: const Color(0xFFD5E7DE), alignment: Alignment.centerLeft),
-                for (final p in roundPlayers)
-                  ...(() {
-                    final matchingSnapshots = snapshots.where((s) => s['id'] == p['id']).toList();
-                    final snap = matchingSnapshots.isEmpty ? null : matchingSnapshots.first;
-                    final score = snap?['score'] as num?;
-                    final negative = score != null && score < 0;
-                    return [
-                      cell(snap == null ? '' : '${snap['call']}', color: const Color(0xFFD5E7DE)),
-                      cell(snap == null ? '' : '${snap['tricks']}', color: const Color(0xFFD5E7DE)),
-                      cell(score == null ? '' : score.toStringAsFixed(1),
-                        bold: negative, color: negative ? const Color(0xFFFFA9B4) : const Color(0xFFFFE5A3)),
-                    ];
-                  })(),
-              ]);
-            }),
-          Row(children: [
-            cell('Final Score', width: 92, header: true, color: Colors.white),
-            for (final p in roundPlayers)
-              ...[
-                cell('', header: true),
-                cell('', header: true),
-                cell(complete ? ((p['roundScore'] as num?)?.toStringAsFixed(1) ?? '') : '',
-                  header: true, bold: true, color: const Color(0xFFFFD56A)),
-              ],
-          ]),
-          Row(children: [
-            cell('Winner', width: 92, header: true, color: Colors.white),
-            for (final p in roundPlayers)
-              ...[
-                cell('', header: true),
-                cell('', header: true),
-                cell(complete && p['winner'] == true ? '🏆 WINNER' : '',
-                  header: true, bold: true, color: const Color(0xFFFFD56A)),
-              ],
-          ]),
-        ])),
+        );
+      }),
+      const SizedBox(height: 12),
+      Container(width: double.infinity, padding: const EdgeInsets.all(11),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [Color(0xFF5A4720), Color(0xFF3B321B)]),
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(color: const Color(0x99FFD56A)),
+        ),
+        child: Row(children: [
+          const Icon(Icons.emoji_events_rounded, color: Color(0xFFFFD56A), size: 22),
+          const SizedBox(width: 8),
+          Expanded(child: Text(winnerNames.isEmpty ? 'Round completed' : 'ROUND WINNER  •  $winnerNames',
+            style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 13, fontWeight: FontWeight.w900))),
+        ]),
       ),
       const SizedBox(height: 8),
-      if (complete)
-        Container(width: double.infinity, padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: const Color(0x3327A36A), borderRadius: BorderRadius.circular(10)),
-          child: Text(winnerNames.isEmpty ? 'राउंड पूरा' : '🏆 Round Winner: $winnerNames',
-            style: const TextStyle(color: Color(0xFFFFD56A), fontWeight: FontWeight.w900, fontSize: 13)))
-      else
-        const Text('हर पूरी हुई Trick के बाद Call, Trick और Score अपडेट होंगे।',
-          style: TextStyle(color: Colors.white60, fontSize: 10)),
+      const Text('Score formula: बोली पूरी होने पर Call Score + हर अतिरिक्त हाथ पर 0.1 अंक। बोली पूरी न होने या Call के दोगुने से अधिक हाथ लेने पर Call के बराबर अंक कटते हैं।',
+        style: TextStyle(color: Color(0xFFBBD7CA), fontSize: 10, height: 1.4)),
     ]),
   );
 }

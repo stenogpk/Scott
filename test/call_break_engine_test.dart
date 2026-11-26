@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scott_game/game/call_break_engine.dart';
+import 'package:scott_game/game/playing_card.dart';
 
 void main() {
   CallBreakEngine makeGame() => CallBreakEngine(seats: [
@@ -27,8 +28,42 @@ void main() {
     if (game.players[next].hand.any((c) => c.suit == lead.suit)) {
       expect(legal.every((c) => c.suit == lead.suit), isTrue);
     } else {
-      expect(legal.length, game.players[next].hand.length);
+      final spades = game.players[next].hand.where((c) => c.suit == CardSuit.spades).toList();
+      expect(legal, spades.isNotEmpty ? spades : game.players[next].hand);
     }
+  });
+
+  test('requires a spade cut when void in the led suit', () {
+    final heart = PlayingCard(rank: CardRank.ace, suit: CardSuit.hearts);
+    final spade = PlayingCard(rank: CardRank.two, suit: CardSuit.spades);
+    final club = PlayingCard(rank: CardRank.three, suit: CardSuit.clubs);
+    final legal = CallBreakEngine.legalCardsForHand(
+      [spade, club], leadSuit: CardSuit.hearts,
+      trick: [(player: 0, card: heart)],
+    );
+    expect(legal, [spade]);
+    expect(CallBreakEngine.legalCardsForHand(
+      [club], leadSuit: CardSuit.hearts,
+      trick: [(player: 0, card: heart)],
+    ), [club]);
+  });
+
+  test('supports 13 rounds and preserves each round scorecard', () {
+    final game = makeGame()..roundsToPlay = 13;
+    for (var round = 1; round <= 13; round++) {
+      game.deal();
+      for (final p in game.players) { p.bid = 2; }
+      while (!game.complete) {
+        game.play(game.turn, game.legalCards(game.turn).first);
+      }
+      expect(game.roundHistory, hasLength(round));
+      if (round < 13) {
+        expect(game.matchComplete, isFalse);
+        game.nextRound();
+      }
+    }
+    expect(game.matchComplete, isTrue);
+    expect(game.roundHistory, hasLength(13));
   });
 
   test('rejects a combined bid below nine and resets bidding', () {

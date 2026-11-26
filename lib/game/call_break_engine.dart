@@ -26,7 +26,7 @@ class CallBreakEngine {
   int turn = 0;
   int trickLead = 0;
   int trickNumber = 0;
-  int roundsToPlay = 5;
+  int roundsToPlay = 1;
   CardSuit? leadSuit;
   final List<({int player, PlayingCard card})> trick = [];
   final List<Map<String, dynamic>> roundHistory = [];
@@ -153,6 +153,12 @@ class CallBreakEngine {
           'id': p.id, 'name': p.name, 'bid': p.bid,
           'tricks': p.tricks, 'roundScore': roundScore, 'totalScore': p.score,
         });
+      }
+      final topScore = roundPlayers
+          .map((p) => p['roundScore'] as double)
+          .reduce((a, b) => a > b ? a : b);
+      for (final p in roundPlayers) {
+        p['winner'] = (p['roundScore'] as double) == topScore;
       }
       roundHistory.add({'round': round, 'players': roundPlayers});
       complete = true;

@@ -31,7 +31,7 @@ class _CallBreakOnlinePageState extends State<CallBreakOnlinePage> {
   bool _busy = false;
   bool _fillBots = true;
   String? _error;
-  int _rounds = 5;
+  int _rounds = 1;
   bool _opened = false;
 
   @override
@@ -148,7 +148,7 @@ class _CallBreakOnlinePageState extends State<CallBreakOnlinePage> {
       TextField(controller: _name, maxLength: 18, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'आपका नाम', prefixIcon: Icon(Icons.person))),
       if (_room == null) ...[
         const SizedBox(height: 6),
-        DropdownButtonFormField<int>(initialValue: _rounds, decoration: const InputDecoration(labelText: 'मैच में राउंड'), items: [for (var n=5;n<=13;n++) DropdownMenuItem(value:n, child:Text('$n राउंड'))], onChanged: (v) { if(v!=null)setState(()=>_rounds=v); }),
+        DropdownButtonFormField<int>(initialValue: _rounds, decoration: const InputDecoration(labelText: 'मैच में राउंड'), items: [for (var n=1;n<=3;n++) DropdownMenuItem(value:n, child:Text('$n राउंड'))], onChanged: (v) { if(v!=null)setState(()=>_rounds=v); }),
         SwitchListTile(contentPadding: EdgeInsets.zero, value: _fillBots, onChanged: (v)=>setState(()=>_fillBots=v), title: const Text('खाली सीटों पर Bots भरें'), subtitle: const Text('1, 2, 3 या 4 असली खिलाड़ियों के साथ शुरू करें')),
         FilledButton.icon(onPressed: _busy ? null : _create, icon: const Icon(Icons.add_circle_outline), label: const Text('Create Room')),
         const Divider(height: 30),
@@ -433,8 +433,12 @@ void _showScorecard(BuildContext context, {
       'inProgress': true,
       'players': [for (final p in players) {
         'id': p['id'], 'name': p['name'], 'bid': p['bid'] ?? 0,
-        'tricks': p['tricks'] ?? 0, 'roundScore': null,
-        'totalScore': p['score'] ?? 0,
+        'tricks': p['tricks'] ?? 0,
+        'roundScore': (p['tricks'] as num? ?? 0) < (p['bid'] as num? ?? 0)
+            ? -((p['bid'] as num? ?? 0).toDouble())
+            : (p['bid'] as num? ?? 0).toDouble() +
+                (((p['tricks'] as num? ?? 0) - (p['bid'] as num? ?? 0)) / 10),
+        'totalScore': p['score'] ?? 0, 'winner': false,
       }],
     });
   }
@@ -481,31 +485,54 @@ void _showScorecard(BuildContext context, {
                       const Row(children: [
                         Expanded(flex: 4, child: Text('खिलाड़ी', style: TextStyle(color: Colors.white54, fontSize: 10))),
                         Expanded(flex: 5, child: Text('बोली • ट्रिक', style: TextStyle(color: Colors.white54, fontSize: 10))),
-                        Expanded(flex: 2, child: Text('राउंड', textAlign: TextAlign.end, style: TextStyle(color: Colors.white54, fontSize: 10))),
+                        Expanded(flex: 2, child: Text('राउंड*', textAlign: TextAlign.end, style: TextStyle(color: Colors.white54, fontSize: 10))),
                         Expanded(flex: 2, child: Text('कुल', textAlign: TextAlign.end, style: TextStyle(color: Colors.white54, fontSize: 10))),
                       ]),
+                      if (roundData['inProgress'] == true)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 3, bottom: 3),
+                          child: Text('*चाल के साथ बदलता अस्थायी स्कोर',
+                            style: TextStyle(color: Colors.white54, fontSize: 9)),
+                        ),
                       const Divider(color: Color(0x337CC6A3), height: 10),
                       for (final raw in (roundData['players'] as List? ?? const []))
                         Builder(builder: (_) {
                           final p = Map<String, dynamic>.from(raw as Map);
-                          final score = p['roundScore'];
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 5),
+                          final score = p['roundScore'] as num?;
+                          final isNegative = score != null && score < 0;
+                          final isWinner = p['winner'] == true && roundData['inProgress'] != true;
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: isNegative ? const Color(0x337A3444) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(7),
+                            ),
                             child: Row(children: [
-                              Expanded(flex: 4, child: Text('${p['name']}',
-                                maxLines: 1, overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800))),
+                              Expanded(flex: 4, child: Row(children: [
+                                Flexible(child: Text('${p['name']}',
+                                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(color: Colors.white,
+                                    fontWeight: isWinner ? FontWeight.w900 : FontWeight.w700))),
+                                if (isWinner) const Padding(
+                                  padding: EdgeInsets.only(left: 3),
+                                  child: Icon(Icons.emoji_events_rounded,
+                                    color: Color(0xFFFFD56A), size: 13)),
+                              ])),
                               Expanded(flex: 5, child: Text(
                                 'बोली ${p['bid']}  •  ट्रिक ${p['tricks']}',
                                 style: const TextStyle(color: Color(0xFFD5E7DE), fontSize: 11))),
                               Expanded(flex: 2, child: Text(
-                                score == null ? '—' : (score as num).toStringAsFixed(1),
+                                score == null ? '—' : score.toStringAsFixed(1),
                                 textAlign: TextAlign.end,
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900))),
+                                style: TextStyle(
+                                  color: isNegative ? const Color(0xFFFFB5BE) : Colors.white,
+                                  fontWeight: isWinner ? FontWeight.w900 : FontWeight.w700))),
                               Expanded(flex: 2, child: Text(
                                 (p['totalScore'] as num? ?? 0).toStringAsFixed(1),
                                 textAlign: TextAlign.end,
-                                style: const TextStyle(color: Color(0xFFFFD56A), fontWeight: FontWeight.w900))),
+                                style: TextStyle(color: const Color(0xFFFFD56A),
+                                  fontWeight: isWinner ? FontWeight.w900 : FontWeight.w700))),
                             ]),
                           );
                         }),

@@ -395,7 +395,7 @@ class _CallBreakTable extends StatefulWidget {
 }
 class _CallBreakTableState extends State<_CallBreakTable> {
   Timer? _timer; bool _collecting = false; String _key = '';
-  String get _signature => widget.trick.map((p) => '${p['player']}:${p['card']}').join('|') + ':${widget.winner}';
+  String get _signature => '${widget.trick.map((p) => '${p['player']}:${p['card']}').join('|')}:${widget.winner}';
   @override void initState() { super.initState(); _schedule(); }
   @override void didUpdateWidget(covariant _CallBreakTable oldWidget) { super.didUpdateWidget(oldWidget); if (_signature != _key) _schedule(); }
   void _schedule() {

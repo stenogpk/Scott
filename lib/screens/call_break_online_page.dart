@@ -314,7 +314,7 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
         
         if(game.complete) Card(child:Padding(padding:const EdgeInsets.all(14),child:Column(children:[
           Text(game.matchComplete?'मैच विजेता: ${game.winnerName}':'राउंड स्कोर',style:const TextStyle(fontSize:20,fontWeight:FontWeight.w900)),
-          for(final p in game.players)ListTile(title:Text(p.name),subtitle:Text('बोली ${p.bid} • चाल ${p.tricks}'),trailing:Text(p.score.toStringAsFixed(1))),
+          for(final p in game.players)ListTile(title:Text(p.name),subtitle:Text('बोली ${p.bid} • हाथ ${p.tricks}'),trailing:Text(p.score.toStringAsFixed(1))),
           if(!game.matchComplete)FilledButton(onPressed:_next,child:const Text('अगला राउंड')),
         ]))),
         if(_notice!=null)Text(_notice!,style:const TextStyle(color:Colors.red)),
@@ -322,8 +322,9 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
         VoiceChatPanel(roomCode:widget.roomCode,getFirebaseIdToken:widget.service.getCurrentIdToken),
         const Center(child:Text('Developed by Shartendu',style:TextStyle(color:Colors.white70,fontSize:11))),
         _scorecardButton(context,
-          players: [for (final p in game.players) {'id':p.id,'name':p.name,'bid':p.bid,'tricks':p.tricks,'score':p.score}],
-          history: game.roundHistory, currentRound: game.round, roundComplete: game.complete),
+          players: [for (final p in game.players) {'id':p.id,'name':p.name,'bid':p.bid,'tricks':p.tricks,'score':p.score,'roundScore':CallBreakEngine.calculateRoundScore(bid:p.bid,tricks:p.tricks)}],
+          history: game.roundHistory, trickHistory: game.trickHistory,
+          currentRound: game.round, roundComplete: game.complete),
       ]))),Positioned.fill(child:IgnorePointer(child:ConfettiWidget(confettiController:_confetti,blastDirectionality:BlastDirectionality.explosive,shouldLoop:false,numberOfParticles:35,gravity:0.18,colors:const [Color(0xFFFFD56A),Colors.white,Color(0xFF16A6A1)]))) ]));
   }
 }
@@ -389,6 +390,7 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
     _scorecardButton(context,
       players: [for (final p in players) Map<String,dynamic>.from(p as Map)],
       history: (state['roundHistory'] as List? ?? const []),
+      trickHistory: (state['trickHistory'] as List? ?? const []),
       currentRound: (state['round'] as num).toInt(),
       roundComplete: state['complete'] == true),
   ])));
@@ -399,6 +401,7 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
 Widget _scorecardButton(BuildContext context, {
   required List<dynamic> players,
   required List<dynamic> history,
+  required List<dynamic> trickHistory,
   required int currentRound,
   required bool roundComplete,
 }) => Padding(
@@ -412,7 +415,7 @@ Widget _scorecardButton(BuildContext context, {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
     onPressed: () => _showScorecard(context, players: players, history: history,
-      currentRound: currentRound, roundComplete: roundComplete),
+      trickHistory: trickHistory, currentRound: currentRound, roundComplete: roundComplete),
     icon: const Icon(Icons.leaderboard_rounded),
     label: const Text('स्कोरकार्ड', style: TextStyle(fontWeight: FontWeight.w900)),
   ),
@@ -421,6 +424,7 @@ Widget _scorecardButton(BuildContext context, {
 void _showScorecard(BuildContext context, {
   required List<dynamic> players,
   required List<dynamic> history,
+  required List<dynamic> trickHistory,
   required int currentRound,
   required bool roundComplete,
 }) {
@@ -437,21 +441,22 @@ void _showScorecard(BuildContext context, {
         'roundScore': p['roundScore'] ?? 0,
         'winner': false,
       }],
+      'trickHistory': trickHistory,
     });
   }
   showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: const Color(0xFF0B211B),
+    backgroundColor: const Color(0xFF071D19),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
     ),
     builder: (sheetContext) => SafeArea(
       child: SizedBox(
-        height: MediaQuery.of(sheetContext).size.height * .78,
+        height: MediaQuery.of(sheetContext).size.height * .88,
         child: Column(children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(18, 16, 10, 8),
+            padding: const EdgeInsets.fromLTRB(16, 13, 8, 8),
             child: Row(children: [
               const Icon(Icons.leaderboard_rounded, color: Color(0xFFFFD56A)),
               const SizedBox(width: 9),
@@ -463,90 +468,120 @@ void _showScorecard(BuildContext context, {
           ),
           const Divider(color: Color(0x447CC6A3), height: 1),
           Expanded(child: rounds.isEmpty
-            ? const Center(child: Text('पहला राउंड पूरा होने पर स्कोर यहाँ दिखेगा।',
-                style: TextStyle(color: Colors.white70)))
-            : ListView(padding: const EdgeInsets.all(12), children: [
-                for (final roundData in rounds) ...[
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xE6133028),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: const Color(0x667CC6A3)),
-                    ),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('राउंड ${roundData['round']}${roundData['inProgress'] == true ? ' • जारी है' : ''}',
-                        style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 15, fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 8),
-                      const Row(children: [
-                        Expanded(flex: 4, child: Text('खिलाड़ी', style: TextStyle(color: Colors.white54, fontSize: 10))),
-                        Expanded(flex: 5, child: Text('बोली • चाल', style: TextStyle(color: Colors.white54, fontSize: 10))),
-                        Expanded(flex: 3, child: Text('इस राउंड का स्कोर', textAlign: TextAlign.end, style: TextStyle(color: Colors.white54, fontSize: 10))),
-                      ]),
-                      if (roundData['inProgress'] == true)
-                        const Padding(
-                          padding: EdgeInsets.only(top: 3, bottom: 3),
-                          child: Text('स्कोर हर पूरी हुई चाल के बाद अपडेट होगा',
-                            style: TextStyle(color: Colors.white54, fontSize: 9)),
-                        ),
-                      const Divider(color: Color(0x337CC6A3), height: 10),
-                      if (roundData['inProgress'] != true)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 5),
-                          child: Text(
-                            '🏆 राउंड विजेता: ${((roundData['players'] as List? ?? const [])
-                              .where((p) => (p as Map)['winner'] == true)
-                              .map((p) => (p as Map)['name']).join(' • '))}',
-                            style: const TextStyle(color: Color(0xFFFFD56A),
-                              fontSize: 13, fontWeight: FontWeight.w900),
-                          ),
-                        ),
-                      for (final raw in (roundData['players'] as List? ?? const []))
-                        Builder(builder: (_) {
-                          final p = Map<String, dynamic>.from(raw as Map);
-                          final score = p['roundScore'] as num?;
-                          final isNegative = score != null && score < 0;
-                          final isWinner = p['winner'] == true && roundData['inProgress'] != true;
-                          return Container(
-                            margin: const EdgeInsets.symmetric(vertical: 2),
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: isNegative ? const Color(0x337A3444) : Colors.transparent,
-                              borderRadius: BorderRadius.circular(7),
-                            ),
-                            child: Row(children: [
-                              Expanded(flex: 4, child: Row(children: [
-                                Flexible(child: Text('${p['name']}',
-                                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(color: Colors.white,
-                                    fontWeight: isWinner ? FontWeight.w900 : FontWeight.w700))),
-                                if (isWinner) const Padding(
-                                  padding: EdgeInsets.only(left: 3),
-                                  child: Icon(Icons.emoji_events_rounded,
-                                    color: Color(0xFFFFD56A), size: 13)),
-                              ])),
-                              Expanded(flex: 5, child: Text(
-                                'बोली ${p['bid']}  •  चाल ${p['tricks']}',
-                                style: const TextStyle(color: Color(0xFFD5E7DE), fontSize: 11))),
-                              Expanded(flex: 3, child: Text(
-                                score == null ? '—' : score.toStringAsFixed(1),
-                                textAlign: TextAlign.end,
-                                style: TextStyle(
-                                  color: isNegative ? const Color(0xFFFFB5BE) : Colors.white,
-                                  fontWeight: isWinner ? FontWeight.w900 : FontWeight.w700))),
-                            ]),
-                          );
-                        }),
-                      const Divider(color: Color(0x337CC6A3), height: 10),
-
-                    ]),
-                  ),
-                ],
+            ? const Center(child: Text('स्कोर यहाँ दिखेगा।', style: TextStyle(color: Colors.white70)))
+            : ListView(padding: const EdgeInsets.fromLTRB(10, 10, 10, 20), children: [
+                for (final roundData in rounds)
+                  _roundScoreSheet(roundData),
               ])),
         ]),
       ),
     ),
+  );
+}
+
+Widget _roundScoreSheet(Map<String, dynamic> roundData) {
+  final roundPlayers = (roundData['players'] as List? ?? const [])
+      .map((p) => Map<String, dynamic>.from(p as Map)).toList();
+  final rows = (roundData['trickHistory'] as List? ?? const [])
+      .map((item) => Map<String, dynamic>.from(item as Map)).toList();
+  final complete = roundData['inProgress'] != true;
+  final winnerNames = roundPlayers.where((p) => p['winner'] == true)
+      .map((p) => p['name'].toString()).join(' • ');
+  final totalWidth = 92.0 + roundPlayers.length * 204.0;
+
+  Widget cell(String value, {double width = 68, bool header = false, bool bold = false, Color? color, Alignment alignment = Alignment.center}) =>
+    Container(width: width, alignment: alignment, padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
+      decoration: BoxDecoration(color: header ? const Color(0xFF1B493B) : Colors.transparent,
+        border: Border.all(color: const Color(0x557CC6A3), width: .55)),
+      child: Text(value, textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis,
+        style: TextStyle(color: color ?? (header ? const Color(0xFFFFD56A) : Colors.white),
+          fontSize: header ? 10 : 11, fontWeight: bold || header ? FontWeight.w900 : FontWeight.w600)));
+
+  Widget playerHeader(Map<String, dynamic> p) => SizedBox(width: 204, child: Column(children: [
+    Container(width: 204, padding: const EdgeInsets.symmetric(vertical: 7),
+      decoration: BoxDecoration(color: const Color(0xFF245B48), border: Border.all(color: const Color(0x667CC6A3))),
+      child: Text(p['name'].toString(), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis,
+        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900))),
+    Row(children: [
+      cell('Call', width: 68, header: true),
+      cell('Trick', width: 68, header: true),
+      cell('Score', width: 68, header: true),
+    ]),
+  ]));
+
+  return Container(
+    margin: const EdgeInsets.only(bottom: 14),
+    padding: const EdgeInsets.all(9),
+    decoration: BoxDecoration(color: const Color(0xE6133028), borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: const Color(0x887CC6A3))),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(child: Text('ROUND ${roundData['round']}',
+          style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1))),
+        if (!complete) const Text('LIVE', style: TextStyle(color: Color(0xFF83E0B2), fontSize: 10, fontWeight: FontWeight.w900)),
+        if (complete) const Icon(Icons.check_circle, color: Color(0xFF83E0B2), size: 17),
+      ]),
+      const SizedBox(height: 9),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(width: totalWidth, child: Column(children: [
+          Row(children: [
+            cell('Player', width: 92, header: true),
+            for (final p in roundPlayers) playerHeader(p),
+          ]),
+          for (var trickNo = 1; trickNo <= 13; trickNo++)
+            Builder(builder: (_) {
+              final entry = rows.where((r) => (r['trick'] as num?)?.toInt() == trickNo).firstOrNull;
+              final snapshots = (entry?['players'] as List? ?? const [])
+                  .map((p) => Map<String, dynamic>.from(p as Map)).toList();
+              return Row(children: [
+                cell('चाल $trickNo', width: 92, bold: true, color: const Color(0xFFD5E7DE), alignment: Alignment.centerLeft),
+                for (final p in roundPlayers)
+                  ...(() {
+                    final snap = snapshots.where((s) => s['id'] == p['id']).firstOrNull;
+                    final score = snap?['score'] as num?;
+                    final negative = score != null && score < 0;
+                    return [
+                      cell(snap == null ? '' : '${snap['call']}', color: const Color(0xFFD5E7DE)),
+                      cell(snap == null ? '' : '${snap['tricks']}', color: const Color(0xFFD5E7DE)),
+                      cell(score == null ? '' : score.toStringAsFixed(1),
+                        bold: negative, color: negative ? const Color(0xFFFFA9B4) : const Color(0xFFFFE5A3)),
+                    ];
+                  })(),
+              ]);
+            }),
+          Row(children: [
+            cell('Final Score', width: 92, header: true, color: Colors.white),
+            for (final p in roundPlayers)
+              ...[
+                cell('', header: true),
+                cell('', header: true),
+                cell(complete ? ((p['roundScore'] as num?)?.toStringAsFixed(1) ?? '') : '',
+                  header: true, bold: true, color: const Color(0xFFFFD56A)),
+              ],
+          ]),
+          Row(children: [
+            cell('Winner', width: 92, header: true, color: Colors.white),
+            for (final p in roundPlayers)
+              ...[
+                cell('', header: true),
+                cell('', header: true),
+                cell(complete && p['winner'] == true ? '🏆 WINNER' : '',
+                  header: true, bold: true, color: const Color(0xFFFFD56A)),
+              ],
+          ]),
+        ])),
+      ),
+      const SizedBox(height: 8),
+      if (complete)
+        Container(width: double.infinity, padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(color: const Color(0x3327A36A), borderRadius: BorderRadius.circular(10)),
+          child: Text(winnerNames.isEmpty ? 'राउंड पूरा' : '🏆 Round Winner: $winnerNames',
+            style: const TextStyle(color: Color(0xFFFFD56A), fontWeight: FontWeight.w900, fontSize: 13)))
+      else
+        const Text('हर पूरी हुई Trick के बाद Call, Trick और Score अपडेट होंगे।',
+          style: TextStyle(color: Colors.white60, fontSize: 10)),
+    ]),
   );
 }
 
@@ -581,7 +616,7 @@ class _CallBreakTableState extends State<_CallBreakTable> {
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(isMe ? Icons.person_pin_circle : Icons.person, size: 15, color: active ? const Color(0xFFFFD56A) : Colors.white70), const SizedBox(width: 4),
             Flexible(child: Text('${p['name'] ?? 'Player'}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w900)))]),
-          const SizedBox(height: 3), Text('बोली ${p['bid'] == null || p['bid'] == 0 ? '—' : p['bid']}  •  चाल ${p['tricks'] ?? 0}', style: const TextStyle(color: Color(0xFFD5E7DE), fontSize: 9, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 3), Text('बोली ${p['bid'] == null || p['bid'] == 0 ? '—' : p['bid']}  •  हाथ ${p['tricks'] ?? 0}', style: const TextStyle(color: Color(0xFFD5E7DE), fontSize: 9, fontWeight: FontWeight.w600)),
           Text('${p['isBot'] == true ? 'BOT  •  ' : ''}स्कोर ${(p['score'] as num? ?? 0).toStringAsFixed(1)}', style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 9, fontWeight: FontWeight.w800)),
         ]));
     }
@@ -606,7 +641,7 @@ class _CallBreakTableState extends State<_CallBreakTable> {
                 child:AnimatedOpacity(duration:const Duration(milliseconds:1050),opacity:moving?0:1,child:Transform.scale(scale: moving ? .62 : 1,child:card(play)))); }),
             if (winner != null && trick.length == 4) Positioned(top:184,left:0,right:0,child:Center(child:Container(padding:const EdgeInsets.symmetric(horizontal:16,vertical:9),
               decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFFFFE08A),Color(0xFFD4A83F)]),borderRadius:BorderRadius.circular(22),border:Border.all(color:Colors.white,width:1.5),boxShadow:const [BoxShadow(color:Colors.black45,blurRadius:12,offset:Offset(0,4))]),
-              child:Row(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.emoji_events,color:Color(0xFF38280A),size:18),const SizedBox(width:6),Text('${players[winner]['name']}  •  इस चाल का विजेता',style:const TextStyle(color:Color(0xFF38280A),fontSize:12,fontWeight:FontWeight.w900))])))),
+              child:Row(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.emoji_events,color:Color(0xFF38280A),size:18),const SizedBox(width:6),Text('${players[winner]['name']}  •  Trick Winner',style:const TextStyle(color:Color(0xFF38280A),fontSize:12,fontWeight:FontWeight.w900))])))),
             if (trick.isEmpty) const Positioned(left:0,right:0,top:174,child:Center(child:Text('कार्ड की चाल यहाँ आएगी',style:TextStyle(color:Color(0x88FFFFFF),fontSize:10)))),
           ]);
         })),

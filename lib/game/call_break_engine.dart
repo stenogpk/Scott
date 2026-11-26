@@ -30,6 +30,7 @@ class CallBreakEngine {
   CardSuit? leadSuit;
   final List<({int player, PlayingCard card})> trick = [];
   final List<Map<String, dynamic>> roundHistory = [];
+  final List<Map<String, dynamic>> trickHistory = [];
   List<({int player, PlayingCard card})> lastTrick = [];
   int? lastTrickWinner;
   bool complete = false;
@@ -64,6 +65,7 @@ class CallBreakEngine {
     lastTrick = [];
     lastTrickWinner = null;
     trickNumber = 0;
+    trickHistory.clear();
     leadSuit = null;
     complete = false;
     redealRequired = false;
@@ -144,6 +146,16 @@ class CallBreakEngine {
     lastTrickWinner = winner;
     players[winner].tricks++;
     trickNumber++;
+    trickHistory.add({
+      'trick': trickNumber,
+      'players': [for (final p in players) {
+        'id': p.id,
+        'name': p.name,
+        'call': p.bid,
+        'tricks': p.tricks,
+        'score': calculateRoundScore(bid: p.bid, tricks: p.tricks),
+      }],
+    });
     trick.clear();
     leadSuit = null;
     trickLead = winner;
@@ -164,7 +176,7 @@ class CallBreakEngine {
       for (final p in roundPlayers) {
         p['winner'] = (p['roundScore'] as double) == topScore;
       }
-      roundHistory.add({'round': round, 'players': roundPlayers});
+      roundHistory.add({'round': round, 'players': roundPlayers, 'trickHistory': List<Map<String, dynamic>>.from(trickHistory)});
       complete = true;
     }
   }
@@ -191,7 +203,7 @@ class CallBreakEngine {
     'round': round, 'roundsToPlay': roundsToPlay, 'dealer': dealer, 'turn': turn,
     'trickLead': trickLead, 'trickNumber': trickNumber, 'leadSuit': leadSuit?.name,
     'complete': complete, 'bidding': bidding, 'totalBids': totalBids,
-    'roundHistory': roundHistory,
+    'roundHistory': roundHistory, 'trickHistory': trickHistory,
     'redealRequired': redealRequired, 'winnerName': winnerName,
     'players': [for (final p in players) {
       'id': p.id, 'name': p.name, 'isBot': p.isBot, 'bid': p.bid,

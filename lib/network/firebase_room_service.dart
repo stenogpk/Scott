@@ -15,13 +15,19 @@ class FirebaseRoomService {
   String? _userId;
   DateTime? _tokenExpiresAt;
   String? get userId => _userId;
+  Future<String> getCurrentIdToken() async {
+    await _ensureSignedIn();
+    final token = _idToken;
+    if (token == null || token.isEmpty) throw StateError('Firebase session is unavailable.');
+    return token;
+  }
   bool get isConfigured => apiKey.isNotEmpty && databaseUrl.startsWith('https://');
 
   Future<void> signInAsGuest() async {
-    if (!isConfigured) throw StateError('Online multiplayer setup is incomplete. Firebase API key and Realtime Database URL are required.');
+    if (!isConfigured) throw StateError('ऑनलाइन सुविधा अभी उपलब्ध नहीं है। कृपया बाद में प्रयास करें।');
     final uri = Uri.parse('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=$apiKey');
     final response = await _client.post(uri, headers: {'Content-Type': 'application/json'}, body: jsonEncode({'returnSecureToken': true}));
-    if (response.statusCode != 200) throw StateError('Guest sign-in failed: ${response.body}');
+    if (response.statusCode != 200) throw StateError('ऑनलाइन कनेक्शन नहीं हो सका। कृपया इंटरनेट कनेक्शन जाँचकर दोबारा प्रयास करें।');
     final json = jsonDecode(response.body) as Map<String, dynamic>;
     _idToken = json['idToken'] as String;
     _refreshToken = json['refreshToken'] as String?;
@@ -44,11 +50,11 @@ class FirebaseRoomService {
     return RoomSnapshot(code: code, hostId: hostId, players: [player], targetScore: targetScore);
   }
 
-  Future<RoomSnapshot> joinRoom({required String code, required String playerName}) async {
+  Future<RoomSnapshot> joinRoom({required String code, required String playerName, int maxPlayers = 5}) async {
     await _ensureSignedIn();
     final room = await getRoom(code);
     if (room.started) throw StateError('यह गेम शुरू हो चुका है।');
-    if (room.players.length >= 5) throw StateError('कमरा भर चुका है।');
+    if (room.players.length >= maxPlayers) throw StateError('कमरा भर चुका है।');
     if (room.players.any((p) => p.id == _userId)) return room;
     final player = RoomPlayer(id: _userId!, name: playerName.trim());
     // A joining guest may add only their own player record. updatedAt is
@@ -61,7 +67,7 @@ class FirebaseRoomService {
   Future<RoomSnapshot> getRoom(String code) async {
     await _ensureSignedIn();
     final response = await _client.get(_pathUri('rooms/${code.toUpperCase()}/public'));
-    if (response.statusCode != 200) throw StateError('Room lookup failed: ${response.body}');
+    if (response.statusCode != 200) throw StateError('Room की जानकारी नहीं मिल सकी। कृपया Room Code जाँचें और दोबारा प्रयास करें।');
     final raw = jsonDecode(response.body);
     if (raw == null) throw StateError('यह Room Code नहीं मिला।');
     return RoomSnapshot.fromJson(Map<String, dynamic>.from(raw as Map)..['code'] = code.toUpperCase());
@@ -100,17 +106,23 @@ class FirebaseRoomService {
     final room = await getRoom(code);
     if (room.hostId != _userId) throw StateError('Only the host can receive player actions.');
     yield* Stream.periodic(interval).asyncMap((_) async {
-      final response = await _client.get(_pathUri('rooms/${code.toUpperCase()}/actions'));
-      if (response.statusCode != 200 || response.body == 'null') return <Map<String, dynamic>>[];
-      final raw = jsonDecode(response.body) as Map;
-      final actions = <Map<String, dynamic>>[];
-      for (final entry in raw.entries) {
-        if (entry.value is Map) {
-          actions.add(Map<String, dynamic>.from(entry.value as Map));
-          await _deletePath('rooms/${code.toUpperCase()}/actions/${entry.key}');
+      try {
+        final response = await _client.get(_pathUri('rooms/${code.toUpperCase()}/actions'));
+        if (response.statusCode != 200 || response.body == 'null') return <Map<String, dynamic>>[];
+        final raw = jsonDecode(response.body) as Map;
+        final actions = <Map<String, dynamic>>[];
+        for (final entry in raw.entries) {
+          if (entry.value is Map) {
+            actions.add(Map<String, dynamic>.from(entry.value as Map));
+            await _deletePath('rooms/${code.toUpperCase()}/actions/${entry.key}');
+          }
         }
+        return actions;
+      } catch (_) {
+        // A temporary fetch/delete failure must not terminate the polling stream.
+        // The next interval retries automatically when connectivity returns.
+        return <Map<String, dynamic>>[];
       }
-      return actions;
     });
   }
 
@@ -118,7 +130,14 @@ class FirebaseRoomService {
     await _ensureSignedIn();
     final id = _userId!;
     yield await _getGameMessage(code, id);
-    yield* Stream.periodic(interval).asyncMap((_) => _getGameMessage(code, id));
+    yield* Stream.periodic(interval).asyncMap((_) async {
+      try {
+        return await _getGameMessage(code, id);
+      } catch (_) {
+        // Keep guest updates alive across temporary network failures.
+        return <String, dynamic>{'type': 'retry'};
+      }
+    });
   }
 
   Future<Map<String, dynamic>> _getGameMessage(String code, String id) async {
@@ -132,12 +151,12 @@ class FirebaseRoomService {
 
   Future<void> _putPath(String path, String body) async {
     final response = await _client.put(_pathUri(path), headers: {'Content-Type': 'application/json'}, body: body);
-    if (response.statusCode < 200 || response.statusCode >= 300) throw StateError('Firebase write failed: ${response.body}');
+    if (response.statusCode < 200 || response.statusCode >= 300) throw StateError('गेम डेटा सेव नहीं हो सका। कृपया दोबारा प्रयास करें।');
   }
 
   Future<void> _deletePath(String path) async {
     final response = await _client.delete(_pathUri(path));
-    if (response.statusCode < 200 || response.statusCode >= 300) throw StateError('Firebase action cleanup failed: ${response.body}');
+    if (response.statusCode < 200 || response.statusCode >= 300) throw StateError('गेम अपडेट पूरा नहीं हो सका। कृपया दोबारा प्रयास करें।');
   }
 
   Uri _pathUri(String path) => Uri.parse('${databaseUrl.replaceFirst(RegExp(r'/+$'), '')}/$path.json?auth=$_idToken');

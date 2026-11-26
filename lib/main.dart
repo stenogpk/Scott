@@ -11,6 +11,9 @@ import 'network/room_models.dart';
 import 'game/scott_game_engine.dart';
 import 'screens/game_table_page.dart';
 import 'screens/scott_rules_page.dart';
+import 'screens/about_page.dart';
+import 'widgets/scott_royal_logo.dart';
+import 'widgets/new_games_card.dart';
 import 'network/game_state_codec.dart';
 import 'services/scott_audio.dart';
 
@@ -157,7 +160,7 @@ class _ScottHomePageState extends State<ScottHomePage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('SCOTT', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)), actions: [IconButton(tooltip: 'Edit Profile', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileEditorPage(onSaved: widget.onProfileChanged, onDeleted: widget.onProfileDeleted, initialName: widget.profileName, initialGender: widget.profileGender))), icon: const Icon(Icons.edit_outlined)), IconButton(tooltip: 'Settings', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottSettingsPage())), icon: const Icon(Icons.settings_outlined))]),
+    appBar: AppBar(title: const Text('SCOTT', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)), actions: [IconButton(tooltip: 'About SCOTT', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage())), icon: const Icon(Icons.info_outline)), IconButton(tooltip: 'Edit Profile', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileEditorPage(onSaved: widget.onProfileChanged, onDeleted: widget.onProfileDeleted, initialName: widget.profileName, initialGender: widget.profileGender))), icon: const Icon(Icons.edit_outlined)), IconButton(tooltip: 'Settings', onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottSettingsPage())), icon: const Icon(Icons.settings_outlined))]),
     body: SafeArea(child: Center(child: SingleChildScrollView(
       padding: const EdgeInsets.all(22),
       child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 520), child: Column(
@@ -171,7 +174,7 @@ class _ScottHomePageState extends State<ScottHomePage> {
               borderRadius: BorderRadius.circular(26),
             ),
             child: const Column(children: [
-              Icon(Icons.style_rounded, color: Colors.white, size: 68),
+              ScottRoyalLogo(size: 116),
               SizedBox(height: 12),
               Text('SCOTT', style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.w900, letterSpacing: 4)),
               SizedBox(height: 8),
@@ -181,6 +184,8 @@ class _ScottHomePageState extends State<ScottHomePage> {
             ]),
           ),
           const SizedBox(height: 22),
+          const NewGamesCard(),
+          const SizedBox(height: 14),
           Container(padding: const EdgeInsets.all(14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)), child: Row(children: [const CircleAvatar(child: Icon(Icons.person)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(widget.profileName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17)), Text(widget.profileGender, style: const TextStyle(color: Colors.blueGrey))])), IconButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileEditorPage(onSaved: widget.onProfileChanged, onDeleted: widget.onProfileDeleted, initialName: widget.profileName, initialGender: widget.profileGender))), icon: const Icon(Icons.edit_outlined))])),
           const SizedBox(height: 12),
           _HomeModeCard(icon: Icons.public, title: 'Online Multiplayer', subtitle: 'दूर बैठे दोस्तों के साथ Room Code से खेलें', onTap: () => _open(context, OnlineRoomPage(playerName: _playerName))),
@@ -230,6 +235,7 @@ class _ScottSettingsPageState extends State<ScottSettingsPage> {
         Slider(value: audio.volume, min: 0, max: 1, divisions: 10, label: '${(audio.volume * 100).round()}%', onChanged: (value) => setState(() => audio.volume = value)),
         FilledButton.tonalIcon(onPressed: () => audio.play('tap'), icon: const Icon(Icons.volume_up), label: const Text('Test Sound')),
         ListTile(leading: const Icon(Icons.menu_book_outlined), title: const Text('खेल के नियम / How to Play'), subtitle: const Text('हिंदी और English में पूरी नियमावली'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage()))),
+        ListTile(leading: const Icon(Icons.info_outline), title: const Text('About SCOTT'), subtitle: const Text('Developer और संपर्क जानकारी'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage()))),
         const Divider(height: 30),
         const ListTile(title: Text('Online Multiplayer'), subtitle: Text('Firebase Guest Authentication और Realtime Database')),
         const ListTile(title: Text('Local Wi-Fi'), subtitle: Text('एक ही Wi-Fi / Hotspot पर बिना इंटरनेट')),
@@ -318,6 +324,8 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
         sendAction: (action) => unawaited(_service.sendAction(code, action)),
         playerId: _service.userId!,
         initialMessage: message,
+        voiceRoomCode: code,
+        getFirebaseIdToken: _service.getCurrentIdToken,
       )));
     }, onError: (Object error) {
       if (mounted) setState(() => _error = error.toString());
@@ -346,6 +354,8 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
         actions: actions,
         publish: (publicState, privateHands) => _service.publishGameState(room.code, publicState, privateHands),
         sendToPlayer: (_, __) {},
+        voiceRoomCode: room.code,
+        getFirebaseIdToken: _service.getCurrentIdToken,
       )));
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _busy = false; });
@@ -382,7 +392,7 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
         _RoomHeader(room: _room!),
         const SizedBox(height: 12),
         FilledButton.icon(
-          onPressed: () => Share.share('क्या आप ससम्मान बाहर होने के लिए तैयार हैं? 😄\nतो आइए मेरे साथ SCOTT Game के मैदान में!\n\n🎮 गेम खेलने के लिए इस लिंक को खोलें:\nhttps://stenogpk.github.io/Scott/?room=${_room!.code}\n\nजुड़ने का तरीका:\n1. लिंक खोलें—गेम आपके ब्राउज़र में खुलेगा।\n2. अपना नाम दर्ज करें।\n3. Join Room दबाएँ और खेल शुरू करें!\n\nलक्ष्य: ${_room!.targetScore} अंक।'),
+          onPressed: () => Share.share('क्या आप ससम्मान बाहेर होने का गौरव प्राप्त करने के लिए तैयार हैं? 😂\nतो आइए मेरे साथ SCOTT Game के मैदान में!\n\n🎮 गेम खेलने के लिए इस लिंक को खोलें:\nhttps://stenogpk.github.io/Scott/voice-test/?room=${_room!.code}\n\nजुड़ने का तरीका:\n\n1. लिंक खोलें—गेम आपके ब्राउज़र में खुलेगा।\n2. अपना नाम दर्ज करें।\n3. Join Room दबाएँ और खेल शुरू करें!\n\n🎯 गेम का लक्ष्य: ${_room!.targetScore} अंक।\n\n🎙️ Voice Chat का भी मज़ा लें!\nगेम स्क्रीन में सबसे नीचे दिए गए Join Voice बटन पर क्लिक करें और दोस्तों के साथ खेलते-खेलते बातें भी करें। हँसी-मज़ाक और मस्ती का मज़ा दोगुना करें! 😂\n\nतो तैयार हो जाइए...\n🃏 चालें चलेंगी, बाज़ी पलटेगी और कोई न कोई होगा ससम्मान बाहेर! 😂🔥'),
           icon: const Icon(Icons.share),
           label: const Text('Share Room / Invite Friends'),
         ),
@@ -407,8 +417,6 @@ class _OnlineRoomPageState extends State<OnlineRoomPage> {
       ],
       if (_busy) const Padding(padding: EdgeInsets.all(18), child: Center(child: CircularProgressIndicator())),
       if (_error != null) Padding(padding: const EdgeInsets.only(top: 12), child: Text(_error!, style: const TextStyle(color: Colors.red))),
-      const SizedBox(height: 18),
-      const Text('ऑनलाइन खेलने के लिए SCOTT Firebase project का secure configuration जरूरी है।', style: TextStyle(color: Color(0xFF657583), fontSize: 12)),
     ])),
   );
 }

@@ -9,7 +9,11 @@ import 'network/game_state_codec.dart';
 import 'game/scott_game_engine.dart';
 import 'screens/game_table_page.dart';
 import 'screens/scott_rules_page.dart';
+import 'screens/about_page.dart';
 import 'services/scott_audio.dart';
+import 'widgets/scott_royal_logo.dart';
+import 'widgets/new_games_card.dart';
+import 'screens/call_break_online_page.dart';
 
 const apiKey = String.fromEnvironment('FIREBASE_API_KEY');
 const databaseUrl = String.fromEnvironment('FIREBASE_DATABASE_URL');
@@ -20,14 +24,14 @@ class ScottWebApp extends StatelessWidget {
   const ScottWebApp({super.key});
   @override
   Widget build(BuildContext context) => MaterialApp(
-    title: 'SCOTT Online',
+    title: 'SCOTT',
     debugShowCheckedModeBanner: false,
     theme: ThemeData(useMaterial3: true, colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF16A6A1)), scaffoldBackgroundColor: const Color(0xFFF3F6F8)),
     builder: (context, child) => Stack(children: [
       child ?? const SizedBox.shrink(),
       const Positioned(right: 10, bottom: 6, child: IgnorePointer(child: Text('Developed by Shartendu', style: TextStyle(fontSize: 9, color: Color(0x8871808C), fontWeight: FontWeight.w700)))),
     ]),
-    home: const ScottWebHome(),
+    home: Uri.base.queryParameters['callbreak'] == '1' ? const CallBreakOnlinePage() : const ScottWebHome(),
   );
 }
 
@@ -51,7 +55,7 @@ class _ScottWebHomeState extends State<ScottWebHome> {
   @override
   void dispose() { _name.dispose(); _code.dispose(); unawaited(_gameSub?.cancel()); unawaited(_service.dispose()); super.dispose(); }
 
-  String get _inviteLink => '${Uri.base.origin}${Uri.base.path}?room=${_room?.code ?? _code.text.trim().toUpperCase()}';
+  String get _inviteLink => 'https://stenogpk.github.io/Scott/voice-test/?room=${_room?.code ?? _code.text.trim().toUpperCase()}';
 
   Future<void> _run(Future<RoomSnapshot> Function() task) async {
     final name = _name.text.trim();
@@ -78,6 +82,7 @@ class _ScottWebHomeState extends State<ScottWebHome> {
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => RemoteGameTablePage(
         messages: _service.watchGame(code), sendAction: (a) => unawaited(_service.sendAction(code, a)),
         playerId: _service.userId!, initialMessage: m,
+        voiceRoomCode: code, getFirebaseIdToken: _service.getCurrentIdToken,
       )));
     }, onError: (e) { if (mounted) setState(() => _error = e.toString()); });
   }
@@ -93,23 +98,28 @@ class _ScottWebHomeState extends State<ScottWebHome> {
       final actions = _service.watchActions(room.code).asyncExpand((items) => Stream<RoomAction>.fromIterable(items.map((i) => (playerId:i['playerId'] as String, action:Map<String,dynamic>.from(i['action'] as Map)))));
       if (!mounted) return;
       setState(() => _busy = false);
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => HostGameTablePage(engine: engine, initialState: state, hostId: _service.userId!, actions: actions, publish: (s,h) => _service.publishGameState(room.code,s,h), sendToPlayer: (_,__){})));
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => HostGameTablePage(engine: engine, initialState: state, hostId: _service.userId!, actions: actions, publish: (s,h) => _service.publishGameState(room.code,s,h), sendToPlayer: (_,__) {}, voiceRoomCode: room.code, getFirebaseIdToken: _service.getCurrentIdToken)));
     } catch (e) { if (mounted) setState(() { _error = e.toString(); _busy = false; }); }
   }
 
+  String get _inviteMessage => 'क्या आप ससम्मान बाहेर होने का गौरव प्राप्त करने के लिए तैयार हैं? 😂\nतो आइए मेरे साथ SCOTT Game के मैदान में!\n\n🎮 गेम खेलने के लिए इस लिंक को खोलें:\n$_inviteLink\n\nजुड़ने का तरीका:\n\n1. लिंक खोलें—गेम आपके ब्राउज़र में खुलेगा।\n2. अपना नाम दर्ज करें।\n3. Join Room दबाएँ और खेल शुरू करें!\n\n🎯 गेम का लक्ष्य: ${_room?.targetScore ?? _target} अंक।\n\n🎙️ Voice Chat का भी मज़ा लें!\nगेम स्क्रीन में सबसे नीचे दिए गए Join Voice बटन पर क्लिक करें और दोस्तों के साथ खेलते-खेलते बातें भी करें। हँसी-मज़ाक और मस्ती का मज़ा दोगुना करें! 😂\n\nतो तैयार हो जाइए...\n🃏 चालें चलेंगी, बाज़ी पलटेगी और कोई न कोई होगा ससम्मान बाहेर! 😂🔥';
+
   Future<void> _copyInvite() async {
-    await Clipboard.setData(ClipboardData(text: _inviteLink));
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invite link कॉपी हो गया!')));
+    await Clipboard.setData(ClipboardData(text: _inviteMessage));
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('पूरा Invite Message कॉपी हो गया!')));
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('SCOTT • Online'), actions: [
+      IconButton(tooltip: 'About SCOTT', icon: const Icon(Icons.info_outline), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage()))),
       IconButton(tooltip: 'खेल के नियम / How to Play', icon: const Icon(Icons.menu_book_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage()))),
       IconButton(tooltip: 'Settings', icon: const Icon(Icons.settings_outlined), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottWebSettingsPage()))),
     ]),
     body: Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 720), child: ListView(padding: const EdgeInsets.all(24), children: [
-      Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(gradient: const LinearGradient(colors:[Color(0xFF142B45),Color(0xFF247A83)]), borderRadius: BorderRadius.circular(24)), child: const Column(children:[Text('SCOTT',style:TextStyle(color:Colors.white,fontSize:36,fontWeight:FontWeight.w900,letterSpacing:4)),Text('Browser से भी खेलें • App जरूरी नहीं',style:TextStyle(color:Colors.white))])),
+      Container(padding: const EdgeInsets.all(24), decoration: BoxDecoration(gradient: const LinearGradient(colors:[Color(0xFF142B45),Color(0xFF247A83)]), borderRadius: BorderRadius.circular(24)), child: const Column(children:[ScottRoyalLogo(size:116),SizedBox(height:10),Text('SCOTT',style:TextStyle(color:Colors.white,fontSize:36,fontWeight:FontWeight.w900,letterSpacing:4)),SizedBox(height:6),Text('Browser से भी खेलें • App जरूरी नहीं',style:TextStyle(color:Colors.white))])),
+      const SizedBox(height:14),
+      const NewGamesCard(),
       const SizedBox(height:14),
       OutlinedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ScottRulesPage())), icon: const Icon(Icons.menu_book_outlined), label: const Text('खेल के नियम / How to Play')),
       const SizedBox(height:18),
@@ -182,6 +192,7 @@ class _ScottWebSettingsPageState extends State<ScottWebSettingsPage> {
             const ListTile(leading: Icon(Icons.wifi_off_outlined), title: Text('Local Wi-Fi'),
               subtitle: Text('केवल Android ऐप में उपलब्ध; Browser में Local Wi-Fi Host/Join समर्थित नहीं है.')),
             const ListTile(title: Text('Developer'), subtitle: Text('Developed by Shartendu')),
+            ListTile(leading: const Icon(Icons.info_outline), title: const Text('About SCOTT'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage()))),
           ]),
         ),
       ),

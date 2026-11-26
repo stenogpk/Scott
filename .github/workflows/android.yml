@@ -1,8 +1,7 @@
 name: SCOTT Android CI
 on:
   push:
-    branches: ["main"]
-  pull_request:
+    branches: ["main", "feature/cloudflare-agora-token-server"]
   workflow_dispatch:
 concurrency:
   group: scott-android-${{ github.ref }}
@@ -12,6 +11,7 @@ permissions:
   contents: read
 jobs:
   android:
+    if: github.ref == 'refs/heads/main' || contains(github.event.head_commit.message, '[build-android]')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,18 +28,63 @@ jobs:
           cache: true
       - name: Generate Android platform
         run: flutter create --platforms=android --org com.shartendu --project-name scott_game .
+      - name: Set Android compile SDK for Agora dependencies
+        run: |
+          BUILD_FILE=''
+          for candidate in android/app/build.gradle android/app/build.gradle.kts; do
+            if [ -f "$candidate" ]; then BUILD_FILE="$candidate"; break; fi
+          done
+          if [ -z "$BUILD_FILE" ]; then echo 'Android Gradle build file not found'; ls -la android/app; exit 1; fi
+          sed -i 's/compileSdk = flutter.compileSdkVersion/compileSdk = 36/; s/compileSdk flutter.compileSdkVersion/compileSdk 36/; s/compileSdkVersion flutter.compileSdkVersion/compileSdkVersion 36/' "$BUILD_FILE"
+          grep -n 'compileSdk' "$BUILD_FILE"
       - name: Apply SCOTT Android network permissions
         run: cp tool/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+      - name: Apply SCOTT launcher icon
+        run: |
+          python3 -m pip install --quiet pillow
+          python3 tool/generate_android_icon.py
       - name: Generate original sound effects
         run: python3 tool/generate_sounds.py
       - name: Install dependencies
         run: flutter pub get
+      - name: Force compile SDK 36 in cached Android plugins
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+          cache = Path(os.environ.get('PUB_CACHE', str(Path.home() / '.pub-cache')))
+          agora = cache / 'hosted' / 'pub.dev' / 'agora_rtc_engine-6.6.4' / 'android' / 'build.gradle'
+          if not agora.is_file(): raise SystemExit(f'Agora Gradle file not found: {agora}')
+          changed = []
+          for gradle in cache.rglob('build.gradle*'):
+              if '/example/' in str(gradle): continue
+              try: source = gradle.read_text()
+              except (UnicodeDecodeError, OSError): continue
+              if gradle.name.endswith('.kts'):
+                  updated = re.sub(r'(?m)^(\s*)compileSdk(?:Version)?\s*(?:=\s*)?.*$', r'\g<1>compileSdk = 36', source)
+              else:
+                  updated = re.sub(r'(?m)^(\s*)compileSdkVersion\s*(?:=\s*)?.*$', r'\g<1>compileSdkVersion 36', source)
+                  updated = re.sub(r'(?m)^(\s*)compileSdk\s*(?:=\s*)?.*$', r'\g<1>compileSdk 36', updated)
+              if updated != source: gradle.write_text(updated); changed.append(str(gradle))
+          agora_lines = [line.strip() for line in agora.read_text().splitlines() if re.match(r'^\s*compileSdk(?:Version)?\b', line)]
+          print(f'Updated {len(changed)} plugin Gradle files')
+          print('Agora Groovy declaration:', agora_lines)
+          if 'compileSdkVersion 36' not in agora_lines and 'compileSdk 36' not in agora_lines: raise SystemExit('Agora Groovy compile SDK did not become 36')
+          for path in cache.glob('hosted/pub.dev/shared_preferences_android-*/android/build.gradle.kts'):
+              lines = [line.strip() for line in path.read_text().splitlines() if re.match(r'^\s*compileSdk\b', line)]
+              print(f'{path}: {lines}')
+              if 'compileSdk = 36' not in lines: raise SystemExit(f'Kotlin DSL compileSdk invalid in {path}')
+          PY
       - name: Analyze
         run: flutter analyze
       - name: Test
         run: flutter test
       - name: Configure Web platform
-        run: flutter create . --platforms web
+        run: |
+          flutter create . --platforms web
+          sed -i 's#</body>#<script src="https://download.agora.io/sdk/release/iris-web-rtc_n450_w4220_0.8.6.js"></script></body>#' web/index.html
       - name: Build Web
         run: flutter build web --target lib/web_main.dart --release --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --dart-define=FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}
       - name: Upload Web build

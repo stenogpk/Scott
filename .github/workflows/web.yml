@@ -1,7 +1,7 @@
 name: SCOTT Web Deploy
 on:
   push:
-    branches: ["main"]
+    branches: ["main", "feature/cloudflare-agora-token-server"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -14,29 +14,48 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout production main
         uses: actions/checkout@v4
+        with:
+          ref: main
+          path: main-src
+      - name: Checkout voice chat preview
+        uses: actions/checkout@v4
+        with:
+          ref: feature/cloudflare-agora-token-server
+          path: preview-src
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-      - name: Generate Web platform
-        run: flutter create --platforms=web --org com.shartendu --project-name scott_game .
-      - name: Generate sound effects
-        run: python3 tool/generate_sounds.py
-      - name: Install dependencies
-        run: flutter pub get
-      - name: Analyze
-        run: flutter analyze
-      - name: Build browser game
-        run: flutter build web --release --base-href "/Scott/" --target lib/web_main.dart --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --dart-define=FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}
+      - name: Build unchanged production website
+        working-directory: main-src
+        run: |
+          flutter create --platforms=web --org com.shartendu --project-name scott_game .
+          sed -i 's#</body>#<script src="https://download.agora.io/sdk/release/iris-web-rtc_n450_w4220_0.8.6.js"></script></body>#' web/index.html
+          python3 tool/generate_sounds.py
+          flutter pub get
+          flutter build web --release --base-href "/Scott/" --target lib/web_main.dart --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --dart-define=FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}
+      - name: Build feature-branch voice chat test website
+        working-directory: preview-src
+        run: |
+          flutter create --platforms=web --org com.shartendu --project-name scott_game .
+          sed -i 's#</body>#<script src="https://download.agora.io/sdk/release/iris-web-rtc_n450_w4220_0.8.6.js"></script></body>#' web/index.html
+          python3 tool/prepare_web.py
+          python3 tool/generate_sounds.py
+          flutter pub get
+          flutter build web --release --base-href "/Scott/voice-test/" --target lib/web_main.dart --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --dart-define=FIREBASE_DATABASE_URL=${{ secrets.FIREBASE_DATABASE_URL }}
+      - name: Combine preview under a separate URL
+        run: |
+          mkdir -p main-src/build/web/voice-test
+          cp -R preview-src/build/web/. main-src/build/web/voice-test/
       - name: Configure Pages
         uses: actions/configure-pages@v5
-      - name: Upload Pages artifact
+      - name: Upload combined Pages site
         uses: actions/upload-pages-artifact@v3
         with:
-          path: build/web
+          path: main-src/build/web
   deploy:
     environment:
       name: github-pages

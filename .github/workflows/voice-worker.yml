@@ -1,0 +1,35 @@
+name: SCOTT Voice Token Worker CI
+on:
+  push:
+    branches: ["feature/cloudflare-agora-token-server"]
+    paths:
+      - "cloudflare/voice-token/**"
+      - ".github/workflows/voice-worker.yml"
+  pull_request:
+    paths:
+      - "cloudflare/voice-token/**"
+      - ".github/workflows/voice-worker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare/voice-token
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: cloudflare/voice-token/package.json
+      - name: Install dependencies
+        run: npm install
+      - name: Validate Worker bundle
+        run: npx wrangler deploy --dry-run

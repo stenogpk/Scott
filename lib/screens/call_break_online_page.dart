@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 // ignore_for_file: deprecated_member_use, prefer_is_empty
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -113,6 +114,23 @@ class _CallBreakOnlinePageState extends State<CallBreakOnlinePage> {
   String get _inviteUrl => 'https://stenogpk.github.io/Scott/voice-test/?callbreak=1&room=${_room?.code ?? _code.text.trim().toUpperCase()}';
   String get _inviteText => 'लकड़ी • CALL BREAK में मेरे साथ खेलें!\nRoom Code: ${_room?.code ?? _code.text.trim().toUpperCase()}\nइस लिंक को ब्राउज़र में खोलें, अपना नाम लिखें और Join Room दबाएँ:\n$_inviteUrl';
 
+  Future<void> _shareInvite() async {
+    try {
+      await Share.share(
+        _inviteText,
+        subject: 'SCOTT • CALL BREAK Room Invite',
+      );
+    } catch (e) {
+      // Keep invitations usable on browsers/devices without a native share sheet.
+      await _copyInvite();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('इस डिवाइस पर Share menu उपलब्ध नहीं है, इसलिए Invite कॉपी कर दिया गया।')),
+        );
+      }
+    }
+  }
+
   Future<void> _copyInvite() async {
     await Clipboard.setData(ClipboardData(text: _inviteText));
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invite कॉपी हो गया।')));
@@ -162,7 +180,8 @@ class _CallBreakOnlinePageState extends State<CallBreakOnlinePage> {
           for (final p in _room!.players) ListTile(dense: true, leading: Icon(p.isHost ? Icons.star : Icons.person), title: Text(p.name), subtitle: p.isHost ? const Text('Host') : null),
           if (_room!.hostId == _service.userId) ...[
             FilledButton.icon(onPressed: _busy ? null : _start, icon: const Icon(Icons.play_arrow), label: const Text('Game Start')),
-            OutlinedButton.icon(onPressed: _copyInvite, icon: const Icon(Icons.share), label: const Text('Invite Link / Code Copy')),
+            FilledButton.icon(onPressed: _shareInvite, icon: const Icon(Icons.share_rounded), label: const Text('Share Invite')),
+            OutlinedButton.icon(onPressed: _copyInvite, icon: const Icon(Icons.copy_rounded), label: const Text('Copy Invite Link / Code')),
           ] else const Text('Host के गेम शुरू करने की प्रतीक्षा करें।', textAlign: TextAlign.center),
           SelectableText(_inviteUrl, textAlign: TextAlign.center),
         ]))),

@@ -105,12 +105,13 @@ class CallBreakEngine {
     );
   }
 
-  /// Call Break follow-suit rule: if a player can overtake the highest
-  /// card currently played in the led suit, they must play a higher card.
-  /// Any higher card is valid; playing the highest available card is not
-  /// required. If none can overtake, any card of the led suit is valid.
-  /// When void in the led suit, cut with a spade; if a trump is already
-  /// on the table, only require a higher spade when one is available.
+  /// Call Break follow-suit and trump-cut rules:
+  /// - Follow the led suit whenever possible.
+  /// - Before any trump is played, overtake the highest led-suit card
+  ///   when a higher card is available.
+  /// - After a trump is played, any card of the led suit is allowed.
+  /// - When void in the led suit, play a spade if no trump is on table;
+  ///   if a trump is already on table, overtrump only when possible.
   static List<PlayingCard> legalCardsForHand(
     List<PlayingCard> hand, {
     required CardSuit? leadSuit,

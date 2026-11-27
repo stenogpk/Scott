@@ -135,6 +135,13 @@ class CallBreakEngine {
       return higherTrumps.isNotEmpty ? higherTrumps : List.of(hand);
     }
 
+    // Once any trump has been played in this trick, the obligation
+    // to overtake the led suit is lifted. The player may follow with
+    // any card of the led suit, including a lower one.
+    final trumpAlreadyPlayed =
+        trick.any((play) => play.card.suit == CardSuit.spades);
+    if (trumpAlreadyPlayed) return follow;
+
     final highestInLeadSuit = trick
         .where((play) => play.card.suit == leadSuit)
         .fold<int>(0, (best, play) =>

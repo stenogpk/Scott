@@ -740,9 +740,10 @@ class _CallBreakTableState extends State<_CallBreakTable> {
             for (final play in trick) Builder(builder: (_) { final player=(play['player'] as num).toInt(); final relative=(player-self+4)%4; final pos=moving?target:positions[relative]!;
               return AnimatedPositioned(key:ValueKey('play-$player-${play['card']}'),duration:Duration(milliseconds:moving?1050:420),curve:moving?Curves.easeInOutCubic:Curves.easeOutBack,left:pos.dx,top:pos.dy,
                 child:AnimatedOpacity(duration:const Duration(milliseconds:1050),opacity:moving?0:1,child:Transform.scale(scale: moving ? .62 : 1,child:card(play)))); }),
-            if (winner != null && trick.length == 4) Positioned(top:246,left:0,right:0,child:Center(child:Container(padding:const EdgeInsets.symmetric(horizontal:16,vertical:9),
-              decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFFFFE08A),Color(0xFFD4A83F)]),borderRadius:BorderRadius.circular(22),border:Border.all(color:Colors.white,width:1.5),boxShadow:const [BoxShadow(color:Colors.black45,blurRadius:12,offset:Offset(0,4))]),
-              child:Row(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.emoji_events,color:Color(0xFF38280A),size:18),const SizedBox(width:6),Text('${players[winner]['name']}  •  Trick Winner',style:const TextStyle(color:Color(0xFF38280A),fontSize:12,fontWeight:FontWeight.w900))])))),
+            if (winner != null && trick.length == 4) Positioned(top:204,left:0,right:0,child:Center(child:Container(
+              padding:const EdgeInsets.symmetric(horizontal:12,vertical:5),
+              decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFFFFE08A),Color(0xFFD4A83F)]),borderRadius:BorderRadius.circular(18),border:Border.all(color:Colors.white,width:1.2),boxShadow:const [BoxShadow(color:Colors.black45,blurRadius:9,offset:Offset(0,3))]),
+              child:Row(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.emoji_events,color:Color(0xFF38280A),size:15),const SizedBox(width:5),Text('${players[winner]['name']}  •  Trick Winner',style:const TextStyle(color:Color(0xFF38280A),fontSize:10,fontWeight:FontWeight.w900))])))),
             if (trick.isEmpty) const Positioned(left:0,right:0,top:174,child:Center(child:Text('कार्ड की चाल यहाँ आएगी',style:TextStyle(color:Color(0x88FFFFFF),fontSize:10)))),
           ]);
         })),

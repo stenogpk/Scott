@@ -109,7 +109,8 @@ class CallBreakEngine {
   /// card currently played in the led suit, they must play a higher card.
   /// Any higher card is valid; playing the highest available card is not
   /// required. If none can overtake, any card of the led suit is valid.
-  /// When void in the led suit, a spade cut is mandatory if available.
+  /// When void in the led suit, cut with a spade; if a trump is already
+  /// on the table, only require a higher spade when one is available.
   static List<PlayingCard> legalCardsForHand(
     List<PlayingCard> hand, {
     required CardSuit? leadSuit,

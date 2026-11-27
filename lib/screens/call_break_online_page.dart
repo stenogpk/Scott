@@ -344,7 +344,7 @@ class _CallBreakHostTableState extends State<_CallBreakHostTable> {
         VoiceChatPanel(roomCode:widget.roomCode,getFirebaseIdToken:widget.service.getCurrentIdToken),
         const Center(child:Text('Developed by Shartendu',style:TextStyle(color:Colors.white70,fontSize:11))),
         _scorecardButton(context,
-          history: game.roundHistory, currentRound: game.round, roundComplete: game.complete),
+          history: game.roundHistory, currentRound: game.round, roundsToPlay: game.roundsToPlay, roundComplete: game.complete),
       ]))),Positioned.fill(child:IgnorePointer(child:ConfettiWidget(confettiController:_confetti,blastDirectionality:BlastDirectionality.explosive,shouldLoop:false,numberOfParticles:35,gravity:0.18,colors:const [Color(0xFFFFD56A),Colors.white,Color(0xFF16A6A1)]))) ]));
   }
 }
@@ -410,6 +410,7 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
     _scorecardButton(context,
       history: (state['roundHistory'] as List? ?? const []),
       currentRound: (state['round'] as num).toInt(),
+      roundsToPlay: (state['roundsToPlay'] as num?)?.toInt() ?? 1,
       roundComplete: state['complete'] == true),
   ])));
 }
@@ -419,6 +420,7 @@ class _CallBreakGuestTableState extends State<_CallBreakGuestTable> {
 Widget _scorecardButton(BuildContext context, {
   required List<dynamic> history,
   required int currentRound,
+  required int roundsToPlay,
   required bool roundComplete,
 }) => Padding(
   padding: const EdgeInsets.only(top: 14, bottom: 8),
@@ -431,7 +433,7 @@ Widget _scorecardButton(BuildContext context, {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
     onPressed: () => _showScorecard(context, history: history,
-      currentRound: currentRound, roundComplete: roundComplete),
+      currentRound: currentRound, roundsToPlay: roundsToPlay, roundComplete: roundComplete),
     icon: const Icon(Icons.leaderboard_rounded),
     label: const Text('स्कोरकार्ड', style: TextStyle(fontWeight: FontWeight.w900)),
   ),
@@ -440,6 +442,7 @@ Widget _scorecardButton(BuildContext context, {
 void _showScorecard(BuildContext context, {
   required List<dynamic> history,
   required int currentRound,
+  required int roundsToPlay,
   required bool roundComplete,
 }) {
   final rounds = history.map((item) => Map<String, dynamic>.from(item as Map)).toList();
@@ -482,6 +485,8 @@ void _showScorecard(BuildContext context, {
               ))
             : ListView(padding: const EdgeInsets.fromLTRB(12, 12, 12, 22), children: [
                 for (final roundData in rounds) _roundScoreSummary(roundData),
+                if (roundComplete && rounds.length >= roundsToPlay)
+                  _finalMatchSummary(rounds),
                 if (!roundComplete)
                   Container(
                     margin: const EdgeInsets.only(top: 2),
@@ -496,6 +501,86 @@ void _showScorecard(BuildContext context, {
         ]),
       ),
     ),
+  );
+}
+
+Widget _finalMatchSummary(List<Map<String, dynamic>> rounds) {
+  final totals = <String, Map<String, dynamic>>{};
+  for (final roundData in rounds) {
+    for (final raw in (roundData['players'] as List? ?? const [])) {
+      final player = Map<String, dynamic>.from(raw as Map);
+      final id = player['id']?.toString() ?? player['name'].toString();
+      final entry = totals.putIfAbsent(id, () => {
+        'id': id, 'name': player['name'].toString(), 'score': 0.0,
+      });
+      entry['score'] = (entry['score'] as double) + ((player['roundScore'] as num?)?.toDouble() ?? 0.0);
+    }
+  }
+  final standings = totals.values.toList()
+    ..sort((a, b) => (b['score'] as double).compareTo(a['score'] as double));
+  final top = standings.isEmpty ? 0.0 : standings.first['score'] as double;
+  final winners = standings.where((p) => (p['score'] as double) == top).toList();
+  final winnerNames = winners.map((p) => p['name'].toString()).join(' • ');
+
+  return Container(
+    margin: const EdgeInsets.only(top: 4, bottom: 16),
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+        colors: [Color(0xFF5A4720), Color(0xFF173F32), Color(0xFF0E2B23)]),
+      borderRadius: BorderRadius.circular(17),
+      border: Border.all(color: const Color(0xFFFFD56A), width: 1.6),
+      boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 12, offset: Offset(0, 5))],
+    ),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Row(children: [
+        Icon(Icons.emoji_events_rounded, color: Color(0xFFFFD56A), size: 23),
+        SizedBox(width: 8),
+        Expanded(child: Text('FINAL SCORECARD  •  पूरा मैच',
+          style: TextStyle(color: Color(0xFFFFD56A), fontSize: 15, fontWeight: FontWeight.w900))),
+      ]),
+      const SizedBox(height: 5),
+      Text('${rounds.length} राउंड का संयुक्त स्कोर',
+        style: const TextStyle(color: Color(0xFFD5E7DE), fontSize: 11)),
+      const SizedBox(height: 12),
+      for (var i = 0; i < standings.length; i++)
+        Container(
+          margin: const EdgeInsets.only(top: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+          decoration: BoxDecoration(
+            color: (standings[i]['score'] as double) == top
+              ? const Color(0x3355B985) : const Color(0x221B493B),
+            borderRadius: BorderRadius.circular(11),
+            border: Border.all(color: (standings[i]['score'] as double) == top
+              ? const Color(0xFFFFD56A) : const Color(0x335B9A7E)),
+          ),
+          child: Row(children: [
+            SizedBox(width: 24, child: Text('${i + 1}.',
+              style: const TextStyle(color: Color(0xFFD5E7DE), fontWeight: FontWeight.w800))),
+            Expanded(child: Text(standings[i]['name'].toString(),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800))),
+            Text((standings[i]['score'] as double).toStringAsFixed(1),
+              style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 17, fontWeight: FontWeight.w900)),
+          ]),
+        ),
+      const SizedBox(height: 12),
+      Container(
+        width: double.infinity, padding: const EdgeInsets.all(11),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0A211A), borderRadius: BorderRadius.circular(11),
+          border: Border.all(color: const Color(0x99FFD56A)),
+        ),
+        child: Row(children: [
+          const Icon(Icons.emoji_events_rounded, color: Color(0xFFFFD56A), size: 22),
+          const SizedBox(width: 8),
+          Expanded(child: Text(winnerNames.isEmpty ? 'FINAL WINNER' : 'FINAL WINNER  •  $winnerNames',
+            style: const TextStyle(color: Color(0xFFFFD56A), fontSize: 13, fontWeight: FontWeight.w900))),
+        ]),
+      ),
+      const SizedBox(height: 7),
+      const Text('फाइनल स्कोर = सभी राउंड्स के Round Score का कुल जोड़।',
+        style: TextStyle(color: Color(0xFFBBD7CA), fontSize: 10)),
+    ]),
   );
 }
 
@@ -646,7 +731,7 @@ class _CallBreakTableState extends State<_CallBreakTable> {
         child: LayoutBuilder(builder: (context, bounds) {
           final w = bounds.maxWidth;
           final seatWidth = (w * .42).clamp(128.0, 154.0).toDouble();
-          final positions = <int,Offset>{0:Offset(w/2-24,224),1:Offset(w-seatWidth-5,150),2:Offset(w/2-24,94),3:const Offset(5,150)};
+          final positions = <int,Offset>{0:Offset(w/2-24,224),1:Offset(w-seatWidth-5,150),2:Offset(w/2-24,94),3:Offset(w*0.28-24,150)};
           final rel = winner == null ? -1 : (winner-self+4)%4;
           final target = rel==0 ? Offset(w/2-24,300) : rel==1 ? Offset(w-seatWidth-4,142) : rel==2 ? Offset(w/2-24,8) : const Offset(4,142);
           return Stack(clipBehavior: Clip.hardEdge, children: [
@@ -655,7 +740,7 @@ class _CallBreakTableState extends State<_CallBreakTable> {
             for (final play in trick) Builder(builder: (_) { final player=(play['player'] as num).toInt(); final relative=(player-self+4)%4; final pos=moving?target:positions[relative]!;
               return AnimatedPositioned(key:ValueKey('play-$player-${play['card']}'),duration:Duration(milliseconds:moving?1050:420),curve:moving?Curves.easeInOutCubic:Curves.easeOutBack,left:pos.dx,top:pos.dy,
                 child:AnimatedOpacity(duration:const Duration(milliseconds:1050),opacity:moving?0:1,child:Transform.scale(scale: moving ? .62 : 1,child:card(play)))); }),
-            if (winner != null && trick.length == 4) Positioned(top:184,left:0,right:0,child:Center(child:Container(padding:const EdgeInsets.symmetric(horizontal:16,vertical:9),
+            if (winner != null && trick.length == 4) Positioned(top:246,left:0,right:0,child:Center(child:Container(padding:const EdgeInsets.symmetric(horizontal:16,vertical:9),
               decoration:BoxDecoration(gradient:const LinearGradient(colors:[Color(0xFFFFE08A),Color(0xFFD4A83F)]),borderRadius:BorderRadius.circular(22),border:Border.all(color:Colors.white,width:1.5),boxShadow:const [BoxShadow(color:Colors.black45,blurRadius:12,offset:Offset(0,4))]),
               child:Row(mainAxisSize:MainAxisSize.min,children:[const Icon(Icons.emoji_events,color:Color(0xFF38280A),size:18),const SizedBox(width:6),Text('${players[winner]['name']}  •  Trick Winner',style:const TextStyle(color:Color(0xFF38280A),fontSize:12,fontWeight:FontWeight.w900))])))),
             if (trick.isEmpty) const Positioned(left:0,right:0,top:174,child:Center(child:Text('कार्ड की चाल यहाँ आएगी',style:TextStyle(color:Color(0x88FFFFFF),fontSize:10)))),

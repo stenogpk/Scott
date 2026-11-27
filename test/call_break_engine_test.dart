@@ -48,6 +48,39 @@ void main() {
     ), [club]);
   });
 
+  test('does not force a trump when unable to overtrump an existing trump', () {
+    final heart = PlayingCard(rank: CardRank.ace, suit: CardSuit.hearts);
+    final tableTrump = PlayingCard(rank: CardRank.ten, suit: CardSuit.spades);
+    final lowTrump = PlayingCard(rank: CardRank.five, suit: CardSuit.spades);
+    final club = PlayingCard(rank: CardRank.three, suit: CardSuit.clubs);
+    final hand = [lowTrump, club];
+    final legal = CallBreakEngine.legalCardsForHand(
+      hand,
+      leadSuit: CardSuit.hearts,
+      trick: [
+        (player: 0, card: heart),
+        (player: 1, card: tableTrump),
+      ],
+    );
+    expect(legal, hand);
+  });
+
+  test('requires a higher trump when it can overtake an existing trump', () {
+    final heart = PlayingCard(rank: CardRank.ace, suit: CardSuit.hearts);
+    final tableTrump = PlayingCard(rank: CardRank.ten, suit: CardSuit.spades);
+    final highTrump = PlayingCard(rank: CardRank.ace, suit: CardSuit.spades);
+    final club = PlayingCard(rank: CardRank.three, suit: CardSuit.clubs);
+    final legal = CallBreakEngine.legalCardsForHand(
+      [highTrump, club],
+      leadSuit: CardSuit.hearts,
+      trick: [
+        (player: 0, card: heart),
+        (player: 1, card: tableTrump),
+      ],
+    );
+    expect(legal, [highTrump]);
+  });
+
   test('supports 13 rounds and preserves each round scorecard', () {
     final game = makeGame()..roundsToPlay = 13;
     for (var round = 1; round <= 13; round++) {

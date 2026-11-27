@@ -81,6 +81,27 @@ void main() {
     expect(legal, [highTrump]);
   });
 
+  test('allows a lower led-suit card after a trump has cut the trick', () {
+    final lowLead = PlayingCard(rank: CardRank.three, suit: CardSuit.diamonds);
+    final highLead = PlayingCard(rank: CardRank.eight, suit: CardSuit.diamonds);
+    final trump = PlayingCard(rank: CardRank.two, suit: CardSuit.spades);
+    final king = PlayingCard(rank: CardRank.king, suit: CardSuit.diamonds);
+    final seven = PlayingCard(rank: CardRank.seven, suit: CardSuit.diamonds);
+    final hand = [king, seven];
+
+    final legal = CallBreakEngine.legalCardsForHand(
+      hand,
+      leadSuit: CardSuit.diamonds,
+      trick: [
+        (player: 0, card: lowLead),
+        (player: 1, card: highLead),
+        (player: 2, card: trump),
+      ],
+    );
+
+    expect(legal, hand);
+  });
+
   test('supports 13 rounds and preserves each round scorecard', () {
     final game = makeGame()..roundsToPlay = 13;
     for (var round = 1; round <= 13; round++) {

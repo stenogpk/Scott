@@ -119,7 +119,19 @@ class CallBreakEngine {
     final follow = hand.where((c) => c.suit == leadSuit).toList();
     if (follow.isEmpty) {
       final trumps = hand.where((c) => c.suit == CardSuit.spades).toList();
-      return trumps.isNotEmpty ? trumps : List.of(hand);
+      if (trumps.isEmpty) return List.of(hand);
+
+      // If a trump has already been played, only require a cut when
+      // this player can overtake the highest trump currently on the table.
+      final highestTrump = trick
+          .where((play) => play.card.suit == CardSuit.spades)
+          .fold<int>(0, (best, play) =>
+              power(play.card) > best ? power(play.card) : best);
+      if (highestTrump == 0) return trumps;
+      final higherTrumps = trumps
+          .where((card) => power(card) > highestTrump)
+          .toList();
+      return higherTrumps.isNotEmpty ? higherTrumps : List.of(hand);
     }
 
     final highestInLeadSuit = trick

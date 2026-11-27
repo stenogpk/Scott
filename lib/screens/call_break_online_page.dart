@@ -731,9 +731,9 @@ class _CallBreakTableState extends State<_CallBreakTable> {
         child: LayoutBuilder(builder: (context, bounds) {
           final w = bounds.maxWidth;
           final seatWidth = (w * .42).clamp(128.0, 154.0).toDouble();
-          final positions = <int,Offset>{0:Offset(w/2-24,224),1:Offset(w-seatWidth-5,150),2:Offset(w/2-24,94),3:Offset(w*0.28-24,150)};
+          final positions = <int,Offset>{0:Offset(w/2-24,224),1:Offset(w-seatWidth-5,150),2:Offset(w/2-24,94),3:Offset(w-(w-seatWidth-5)-48,150)};
           final rel = winner == null ? -1 : (winner-self+4)%4;
-          final target = rel==0 ? Offset(w/2-24,300) : rel==1 ? Offset(w-seatWidth-4,142) : rel==2 ? Offset(w/2-24,8) : const Offset(4,142);
+          final target = rel==0 ? Offset(w/2-24,300) : rel==1 ? Offset(w-seatWidth-4,142) : rel==2 ? Offset(w/2-24,8) : Offset(w-(w-seatWidth-4)-48,142);
           return Stack(clipBehavior: Clip.hardEdge, children: [
             const Positioned(top:83,left:0,right:0,child:Center(child:Text('SCOTT  •  CALL BREAK',style:TextStyle(color:Color(0x77FFFFFF),letterSpacing:3,fontSize:10,fontWeight:FontWeight.w900)))),
             Positioned(top:8,left:w/2-seatWidth/2,child:seat(top,seatWidth)), Positioned(left:5,top:144,child:seat(left,seatWidth)), Positioned(right:5,top:144,child:seat(right,seatWidth)), Positioned(bottom:7,left:w/2-seatWidth/2,child:seat(self,seatWidth)),
